@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AETHER | Dark Web Threat Actor De-Anonymization</title>
+<style>
+/* =====================================================================
+   AETHER - DESIGN SYSTEM (Stage 00)
+   Palette : #000000, #ffffff, #f8fafc, #e2e8f0, #0f172a
+   Geometry: border-radius 0px everywhere, 1px solid borders
+   Type    : system monospace / sans-serif
+   ===================================================================== */
+:root {
+  --black: #000000;
+  --white: #ffffff;
+  --slate-50: #f8fafc;
+  --slate-200: #e2e8f0;
+  --slate-900: #0f172a;
+  --border: 1px solid var(--black);
+  --border-soft: 1px solid var(--slate-200);
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+body { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ---------- Header ---------- */
+.app-header {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  border-bottom: var(--border);
+  background: var(--white);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-right: var(--border);
+}
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--black);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+}
+.brand-name {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.24em;
+}
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slate-900);
+}
+.header-meta {
+  display: flex;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.meta-cell {
+  padding: 12px 20px;
+  border-left: var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.meta-label { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-900); }
+.meta-value { font-weight: 700; }
+
+/* ---------- Stage navigation ---------- */
+.stage-nav {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: var(--border);
+  background: var(--slate-50);
+}
+.stage-tab {
+  appearance: none;
+  background: var(--slate-50);
+  color: var(--black);
+  border: 0;
+  border-right: var(--border);
+  padding: 14px 20px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stage-tab:last-child { border-right: 0; }
+.stage-tab:hover { background: var(--slate-200); }
+.stage-tab:focus-visible { outline: 2px solid var(--black); outline-offset: -4px; }
+.stage-tab[aria-selected="true"] { background: var(--black); color: var(--white); }
+.stage-num { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.stage-title { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* ---------- Main ---------- */
+main { flex: 1; padding: 24px 20px 40px; max-width: 1440px; width: 100%; margin: 0 auto; }
+.stage-panel { display: none; }
+.stage-panel.active { display: block; }
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: var(--border);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+.panel-head h1 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.panel-head .ref { font-family: var(--font-mono); font-size: 11px; color: var(--slate-900); }
+
+/* ---------- Reusable components ---------- */
+.card { border: var(--border); background: var(--white); }
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: var(--border);
+  background: var(--slate-50);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.card-body { padding: 14px; }
+
+.btn {
+  appearance: none;
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid var(--black);
+  padding: 9px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.btn:hover { background: var(--white); color: var(--black); }
+.btn:focus-visible { outline: 2px solid var(--black); outline-offset: 2px; }
+.btn:disabled { background: var(--slate-200); color: var(--slate-900); border-color: var(--slate-200); cursor: not-allowed; }
+.btn.secondary { background: var(--white); color: var(--black); }
+.btn.secondary:hover { background: var(--black); color: var(--white); }
+
+.input {
+  width: 100%;
+  border: 1px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  padding: 9px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.input:focus { outline: 2px solid var(--black); outline-offset: 0; }
+
+.tag {
+  display: inline-block;
+  border: 1px solid var(--black);
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tag.solid { background: var(--black); color: var(--white); }
+
+table.data { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+table.data th, table.data td { border: 1px solid var(--black); padding: 7px 10px; text-align: left; vertical-align: top; }
+table.data th { background: var(--slate-50); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+.terminal {
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  min-height: 160px;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.placeholder {
+  border: 1px dashed var(--black);
+  padding: 40px 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--slate-50);
+}
+
+/* ---------- Footer ---------- */
+.app-footer {
+  border-top: var(--border);
+  padding: 8px 20px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--slate-50);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  .app-header { flex-direction: column; }
+  .brand { border-right: 0; border-bottom: var(--border); }
+  .header-meta { flex-wrap: wrap; }
+  .meta-cell:first-child { border-left: 0; }
+  .stage-nav { grid-template-columns: 1fr; }
+  .stage-tab { border-right: 0; border-bottom: var(--border); }
+  .stage-tab:last-child { border-bottom: 0; }
+}
+
+/* ---------- Print skeleton (completed in Stage 03) ---------- */
+@media print {
+  @page { size: A4; margin: 16mm; }
+  html, body { background: #fff; color: #000; font-size: 11pt; }
+  .app-header, .stage-nav, .app-footer, .no-print { display: none !important; }
+  main { padding: 0; max-width: none; }
+  .stage-panel { display: none !important; }
+  #print-report { display: block !important; }
+}
+#print-report { display: none; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">A</div>
+    <div>
+      <div class="brand-name">AETHER</div>
+      <div class="brand-sub">Dark Web Threat Actor De-Anonymization</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="meta-cell"><span class="meta-label">Problem Statement</span><span class="meta-value">26151</span></div>
+    <div class="meta-cell"><span class="meta-label">Sponsor</span><span class="meta-value">NTRO / SIH 2026</span></div>
+    <div class="meta-cell"><span class="meta-label">Case Ref</span><span class="meta-value">AT-2026-0047</span></div>
+    <div class="meta-cell"><span class="meta-label">Build</span><span class="meta-value">Stage 00</span></div>
+  </div>
+</header>
+
+<nav class="stage-nav" role="tablist" aria-label="Investigation stages">
+  <button class="stage-tab" role="tab" id="tab-1" aria-controls="stage-1" aria-selected="true" data-stage="1">
+    <span class="stage-num">Stage 01</span>
+    <span class="stage-title">Recon &amp; Origin Discovery</span>
+  </button>
+  <button class="stage-tab" role="tab" id="tab-2" aria-controls="stage-2" aria-selected="false" data-stage="2">
+    <span class="stage-num">Stage 02</span>
+    <span class="stage-title">Correlation &amp; Attribution</span>
+  </button>
+  <button class="stage-tab" role="tab" id="tab-3" aria-controls="stage-3" aria-selected="false" data-stage="3">
+    <span class="stage-num">Stage 03</span>
+    <span class="stage-title">Evidence Dossier</span>
+  </button>
+</nav>
+
+<main>
+  <!-- STAGE 01 : implemented in the next commit -->
+  <section class="stage-panel active" id="stage-1" role="tabpanel" aria-labelledby="tab-1">
+    <div class="panel-head">
+      <h1>Stage 01 / Dark Web Recon &amp; Origin Discovery</h1>
+      <span class="ref">STATUS: NOT IMPLEMENTED</span>
+    </div>
+    <div class="placeholder">Stage 01 module pending. Delivered in the next commit.</div>
+  </section>
+
+  <!-- STAGE 02 : implemented in the commit after Stage 01 -->
+  <section class="stage-panel" id="stage-2" role="tabpanel" aria-labelledby="tab-2">
+    <div class="panel-head">
+      <h1>Stage 02 / Threat Correlation &amp; AI Attribution</h1>
+      <span class="ref">STATUS: NOT IMPLEMENTED</span>
+    </div>
+    <div class="placeholder">Stage 02 module pending. Knowledge graph, stylometry lab and diurnal engine.</div>
+  </section>
+
+  <!-- STAGE 03 : implemented last -->
+  <section class="stage-panel" id="stage-3" role="tabpanel" aria-labelledby="tab-3">
+    <div class="panel-head">
+      <h1>Stage 03 / Evidence Dossier &amp; Government Integration</h1>
+      <span class="ref">STATUS: NOT IMPLEMENTED</span>
+    </div>
+    <div class="placeholder">Stage 03 module pending. Dossier card, STIX 2.1 export, CSV export and court PDF.</div>
+  </section>
+
+  <!-- Print-only report container, populated in Stage 03 -->
+  <div id="print-report"></div>
+</main>
+
+<footer class="app-footer">
+  <span>AETHER // Forensic Attribution Workbench</span>
+  <span id="clock">--:--:-- UTC</span>
+</footer>
+
+<script>
+/* =====================================================================
+   AETHER - APPLICATION CORE (Stage 00)
+   Vanilla JS, zero dependencies. Modules are appended per stage.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  /* ---------- Shared application state ---------- */
+  window.AETHER = {
+    caseId: "AT-2026-0047",
+    stageComplete: { 1: false, 2: false, 3: false },
+    data: {}            // stages write their results here for Stage 03 export
+  };
+
+  /* ---------- Stage navigation ---------- */
+  const tabs = Array.prototype.slice.call(document.querySelectorAll(".stage-tab"));
+  const panels = Array.prototype.slice.call(document.querySelectorAll(".stage-panel"));
+
+  function showStage(n) {
+    tabs.forEach(function (t) {
+      t.setAttribute("aria-selected", String(t.dataset.stage === String(n)));
+    });
+    panels.forEach(function (p) {
+      p.classList.toggle("active", p.id === "stage-" + n);
+    });
+    try { history.replaceState(null, "", "#stage-" + n); } catch (e) { /* file:// safe */ }
+  }
+  window.AETHER.showStage = showStage;
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () { showStage(t.dataset.stage); });
+    t.addEventListener("keydown", function (e) {
+      var i = tabs.indexOf(t);
+      if (e.key === "ArrowRight") { tabs[(i + 1) % tabs.length].focus(); tabs[(i + 1) % tabs.length].click(); }
+      if (e.key === "ArrowLeft")  { tabs[(i + tabs.length - 1) % tabs.length].focus(); tabs[(i + tabs.length - 1) % tabs.length].click(); }
+    });
+  });
+
+  var initial = (location.hash.match(/^#stage-([123])$/) || [])[1];
+  showStage(initial || 1);
+
+  /* ---------- UTC clock ---------- */
+  var clock = document.getElementById("clock");
+  function tick() {
+    var d = new Date();
+    clock.textContent = d.toISOString().substr(11, 8) + " UTC";
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  /* ---------- Shared utilities used by later stages ---------- */
+  window.AETHER.util = {
+    sleep: function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); },
+    download: function (filename, mime, content) {
+      var blob = new Blob([content], { type: mime });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    },
+    escapeHtml: function (s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+  };
+})();
+</script>
+</body>
+</html>
