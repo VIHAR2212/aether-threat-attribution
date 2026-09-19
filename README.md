@@ -17,9 +17,9 @@ A zero-dependency, single-file forensic attribution workbench. Open `index.html`
 | Stage | Module | Status |
 |---|---|---|
 | 00 | Scaffold, design system, stage navigation | Complete |
-| 01 | Dark Web Recon and Origin Discovery | Pending |
-| 02 | Correlation graph, stylometry lab, diurnal engine | Pending |
-| 03 | Evidence dossier, STIX 2.1 and CSV export, court PDF | Pending |
+| 01 | Dark Web Recon and Origin Discovery | Complete |
+| 02 | Correlation graph, stylometry lab, diurnal engine | Complete |
+| 03 | Evidence dossier, STIX 2.1 and CSV export, court PDF | Complete |
 
 ## Run locally
 

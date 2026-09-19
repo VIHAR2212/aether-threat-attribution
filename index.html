@@ -255,16 +255,43 @@ table.data th { background: var(--slate-50); font-size: 10px; letter-spacing: 0.
   .stage-nav { grid-template-columns: 1fr; }
   .stage-tab { border-right: 0; border-bottom: var(--border); }
   .stage-tab:last-child { border-bottom: 0; }
+  .s2-graph-grid, .s2-two-col { grid-template-columns: 1fr !important; }
+  .s2-graph-grid > div:first-child { border-right: 0 !important; border-bottom: 1px solid var(--black); }
 }
+
+/* ---------- Stage 02 SVG styling ---------- */
+#s2-graph text, #s2-histogram text { font-family: var(--font-mono); }
+.g-node { cursor: pointer; }
+.g-node:focus { outline: none; }
+.g-node:focus-visible rect, .g-node:focus-visible circle { stroke-width: 4; }
+.g-edge { stroke: #000; stroke-width: 1; }
+.g-edge.dim { stroke: var(--slate-200); }
+.g-edge.hot { stroke-width: 3; }
+.bar { cursor: pointer; }
 
 /* ---------- Print skeleton (completed in Stage 03) ---------- */
 @media print {
   @page { size: A4; margin: 16mm; }
-  html, body { background: #fff; color: #000; font-size: 11pt; }
+  html, body { background: #fff !important; color: #000 !important; font-size: 10.5pt; }
   .app-header, .stage-nav, .app-footer, .no-print { display: none !important; }
-  main { padding: 0; max-width: none; }
+  main { padding: 0; max-width: none; margin: 0; }
   .stage-panel { display: none !important; }
   #print-report { display: block !important; }
+
+  .pr-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 6pt; margin-bottom: 10pt; }
+  .pr-title { font-family: var(--font-mono); font-size: 15pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .pr-meta { font-family: var(--font-mono); font-size: 8.5pt; text-align: right; line-height: 1.5; }
+  .pr-banner { border: 1px solid #000; padding: 4pt 8pt; font-family: var(--font-mono); font-size: 8.5pt; letter-spacing: 0.1em; text-transform: uppercase; text-align: center; margin-bottom: 10pt; }
+  .pr-section { margin-bottom: 12pt; break-inside: avoid; }
+  .pr-section h2 { font-family: var(--font-mono); font-size: 10pt; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 2pt; margin: 0 0 5pt; }
+  .pr-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 8.5pt; }
+  .pr-table th, .pr-table td { border: 1px solid #000; padding: 3pt 5pt; text-align: left; vertical-align: top; word-break: break-word; }
+  .pr-nowrap { white-space: nowrap; word-break: normal !important; }
+  .pr-table th { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pr-hash { font-family: var(--font-mono); font-size: 8pt; word-break: break-all; border: 1px solid #000; padding: 4pt 6pt; }
+  .pr-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 24pt; margin-top: 22pt; }
+  .pr-sign div { border-top: 1px solid #000; padding-top: 3pt; font-family: var(--font-mono); font-size: 8pt; }
+  .pr-foot { margin-top: 14pt; border-top: 1px solid #000; padding-top: 4pt; font-family: var(--font-mono); font-size: 7.5pt; }
 }
 #print-report { display: none; }
 </style>
@@ -283,7 +310,7 @@ table.data th { background: var(--slate-50); font-size: 10px; letter-spacing: 0.
     <div class="meta-cell"><span class="meta-label">Problem Statement</span><span class="meta-value">26151</span></div>
     <div class="meta-cell"><span class="meta-label">Sponsor</span><span class="meta-value">NTRO / SIH 2026</span></div>
     <div class="meta-cell"><span class="meta-label">Case Ref</span><span class="meta-value">AT-2026-0047</span></div>
-    <div class="meta-cell"><span class="meta-label">Build</span><span class="meta-value">Stage 00</span></div>
+    <div class="meta-cell"><span class="meta-label">Build</span><span class="meta-value">Stage 03</span></div>
   </div>
 </header>
 
@@ -303,31 +330,183 @@ table.data th { background: var(--slate-50); font-size: 10px; letter-spacing: 0.
 </nav>
 
 <main>
-  <!-- STAGE 01 : implemented in the next commit -->
+  <!-- STAGE 01 : Dark Web Recon & Origin Discovery -->
   <section class="stage-panel active" id="stage-1" role="tabpanel" aria-labelledby="tab-1">
     <div class="panel-head">
       <h1>Stage 01 / Dark Web Recon &amp; Origin Discovery</h1>
-      <span class="ref">STATUS: NOT IMPLEMENTED</span>
+      <span class="ref" id="s1-status">STATUS: IDLE</span>
     </div>
-    <div class="placeholder">Stage 01 module pending. Delivered in the next commit.</div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head">
+        <span>Target Acquisition</span>
+        <span id="s1-proxy-state" class="tag">SOCKS5: OFF</span>
+      </div>
+      <div class="card-body">
+        <div style="display:grid; grid-template-columns: 1fr auto auto; gap:10px; align-items:center;">
+          <input class="input" id="s1-target" type="text" value="http://p4lx7e22kq6dreadmarket.onion" aria-label="Target .onion address">
+          <label style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11px; letter-spacing:0.05em; text-transform:uppercase; border:1px solid var(--black); padding:9px 14px; cursor:pointer;">
+            <input type="checkbox" id="s1-proxy-toggle" checked style="accent-color:#000;">
+            Proxy 127.0.0.1:9050
+          </label>
+          <button class="btn" id="s1-execute">Execute Recon</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1.1fr 0.9fr; gap:16px; align-items:start;">
+      <div class="card">
+        <div class="card-head">
+          <span>Live Scan Log</span>
+          <span id="s1-log-count">0 / 4 vectors</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div class="terminal" id="s1-terminal" aria-live="polite">Standing by. Press "Execute Recon" to begin fingerprinting.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Origin Discovery Summary</span></div>
+        <div class="card-body">
+          <div id="s1-summary" class="placeholder" style="padding:20px;">No target acquired yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-head"><span>Fingerprint Vector Table</span></div>
+      <div class="card-body" style="padding:0; overflow-x:auto;">
+        <table class="data">
+          <thead>
+            <tr>
+              <th style="width:22%;">Vector Name</th>
+              <th style="width:30%;">Target Fingerprint</th>
+              <th style="width:30%;">Discovered Match</th>
+              <th style="width:18%;">Verification Status</th>
+            </tr>
+          </thead>
+          <tbody id="s1-table-body">
+            <tr><td colspan="4" style="text-align:center; color:var(--slate-900);">No vectors probed.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
-  <!-- STAGE 02 : implemented in the commit after Stage 01 -->
+  <!-- STAGE 02 : Threat Correlation & AI Attribution -->
   <section class="stage-panel" id="stage-2" role="tabpanel" aria-labelledby="tab-2">
     <div class="panel-head">
       <h1>Stage 02 / Threat Correlation &amp; AI Attribution</h1>
-      <span class="ref">STATUS: NOT IMPLEMENTED</span>
+      <span class="ref" id="s2-status">STATUS: READY</span>
     </div>
-    <div class="placeholder">Stage 02 module pending. Knowledge graph, stylometry lab and diurnal engine.</div>
+
+    <!-- 2.1 Knowledge graph -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head">
+        <span>2.1 Entity Knowledge Graph</span>
+        <span class="tag" id="s2-graph-hint">Click a node to inspect</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div style="display:grid; grid-template-columns: 1.5fr 1fr;" class="s2-graph-grid">
+          <div style="border-right:1px solid var(--black); background:var(--white);">
+            <svg id="s2-graph" viewBox="0 0 700 460" width="100%" role="img" aria-label="Threat actor entity graph" style="display:block; max-height:520px;"></svg>
+          </div>
+          <div style="padding:14px; min-height:300px;">
+            <div style="font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px;">Node Inspector</div>
+            <div id="s2-inspector" class="placeholder" style="padding:20px;">No node selected.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2.2 Stylometry lab -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head">
+        <span>2.2 AI Stylometry Lab</span>
+        <span class="tag" id="s2-style-tag">NOT RUN</span>
+      </div>
+      <div class="card-body">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;" class="s2-two-col">
+          <div>
+            <label for="s2-sample-a" style="display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:4px;">Sample A / Dread forum post (ZeroTrace)</label>
+            <textarea class="input" id="s2-sample-a" rows="9" style="resize:vertical;">Listen, the vendor escrow on this market is basically broken - everyone knows it, nobody says it. I have been running the same setup for three years; no downtime, no drama, no excuses. If you want the access dump, ping me. Prices are firm; don't waste my time with lowball offers. Payment in BTC only - no exceptions, no refunds. Trust is earned, not begged for.</textarea>
+          </div>
+          <div>
+            <label for="s2-sample-b" style="display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:4px;">Sample B / Exploit.in forum post (ShadowByte)</label>
+            <textarea class="input" id="s2-sample-b" rows="9" style="resize:vertical;">Listen, the escrow on that forum is basically a joke - everyone knows it, nobody admits it. I have been running this exact setup for years; no downtime, no drama, no excuses. If you need the access logs, ping me. Prices are fixed; don't waste my time with lowball bids. Payment in BTC only - no exceptions, no refunds. Respect is earned, not begged for.</textarea>
+          </div>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn" id="s2-run-style">Run Stylometric Comparison</button>
+          <button class="btn secondary" id="s2-swap-style">Load Unrelated Sample B</button>
+          <span style="font-family:var(--font-mono); font-size:11px;">Method: char 3-gram + word unigram/bigram cosine similarity, client-side.</span>
+        </div>
+        <div id="s2-style-result" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- 2.3 Diurnal engine -->
+    <div class="card">
+      <div class="card-head">
+        <span>2.3 Diurnal UTC Timezone Engine</span>
+        <span class="tag" id="s2-diurnal-tag">NOT RUN</span>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+          <button class="btn" id="s2-run-diurnal">Analyze Post Timestamps</button>
+          <span style="font-family:var(--font-mono); font-size:11px;">Dataset: 212 post timestamps across Dread and Exploit.in (UTC). Click a bar to inspect an hour.</span>
+        </div>
+        <svg id="s2-histogram" viewBox="0 0 720 260" width="100%" role="img" aria-label="Hourly posting histogram in UTC" style="display:block;"></svg>
+        <div id="s2-diurnal-result" style="margin-top:12px;"></div>
+      </div>
+    </div>
   </section>
 
-  <!-- STAGE 03 : implemented last -->
+  <!-- STAGE 03 : Evidence Dossier & Government Integration -->
   <section class="stage-panel" id="stage-3" role="tabpanel" aria-labelledby="tab-3">
     <div class="panel-head">
       <h1>Stage 03 / Evidence Dossier &amp; Government Integration</h1>
-      <span class="ref">STATUS: NOT IMPLEMENTED</span>
+      <span class="ref" id="s3-status">STATUS: READY</span>
     </div>
-    <div class="placeholder">Stage 03 module pending. Dossier card, STIX 2.1 export, CSV export and court PDF.</div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head">
+        <span>3.1 Forensic Attribution Summary</span>
+        <span class="tag solid">Evidence ID: AT-2026-0047</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="data" style="border:0;" id="s3-summary-table">
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head"><span>3.2 Chain of Custody Ledger</span><span class="tag" id="s3-custody-tag">7 entries</span></div>
+      <div class="card-body" style="padding:0; overflow-x:auto;">
+        <table class="data" style="border:0;">
+          <thead>
+            <tr><th style="width:6%;">#</th><th style="width:24%;">Timestamp (UTC)</th><th style="width:20%;">Actor</th><th style="width:30%;">Action</th><th style="width:20%;">Status</th></tr>
+          </thead>
+          <tbody id="s3-custody-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span>3.3 Export &amp; Government Integration</span><span class="tag" id="s3-export-tag">NO EXPORT YET</span></div>
+      <div class="card-body">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" id="s3-dl-stix">Download STIX 2.1 JSON</button>
+          <button class="btn" id="s3-dl-csv">Download Forensic CSV</button>
+          <button class="btn secondary" id="s3-print">Print / Export Court PDF</button>
+        </div>
+        <div style="margin-top:12px; font-family:var(--font-mono); font-size:11px; line-height:1.7;" id="s3-export-log">
+          Downloads: <code>aether_stix_bundle_AT-2026-0047.json</code> &middot; <code>aether_attribution_matrix.csv</code><br>
+          Court PDF: opens the browser print dialog. Choose &quot;Save as PDF&quot; as the destination.
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- Print-only report container, populated in Stage 03 -->
@@ -410,6 +589,926 @@ table.data th { background: var(--slate-50); font-size: 10px; letter-spacing: 0.
       });
     }
   };
+})();
+
+/* =====================================================================
+   STAGE 01 MODULE : Dark Web Recon & Origin Discovery
+   Simulated multi-vector fingerprinting pipeline. No live network I/O.
+   ===================================================================== */
+(function () {
+  "use strict";
+  var util = window.AETHER.util;
+
+  var elTarget    = document.getElementById("s1-target");
+  var elProxyTgl  = document.getElementById("s1-proxy-toggle");
+  var elProxyTag  = document.getElementById("s1-proxy-state");
+  var elExecute   = document.getElementById("s1-execute");
+  var elTerminal  = document.getElementById("s1-terminal");
+  var elLogCount  = document.getElementById("s1-log-count");
+  var elSummary   = document.getElementById("s1-summary");
+  var elTableBody = document.getElementById("s1-table-body");
+  var elStatus    = document.getElementById("s1-status");
+
+  function setProxyTag() {
+    elProxyTag.textContent = "SOCKS5: " + (elProxyTgl.checked ? "ON" : "OFF");
+    elProxyTag.classList.toggle("solid", elProxyTgl.checked);
+  }
+  elProxyTgl.addEventListener("change", setProxyTag);
+  setProxyTag();
+
+  /* ---------- Fingerprint vectors (simulated forensic dataset) ---------- */
+  var VECTORS = [
+    {
+      name: "Favicon Hash",
+      logLines: [
+        "[VECTOR 1/4] Requesting favicon.ico via Tor circuit...",
+        "[VECTOR 1/4] Favicon extracted (1150 bytes)."
+      ],
+      fingerprint: "mmh3(favicon.ico)",
+      compute: function () { return "-129482710"; },
+      matchLabel: "MurmurHash3 collision: known C2 panel template",
+      status: "MATCHED"
+    },
+    {
+      name: "JARM TLS Signature",
+      logLines: [
+        "[VECTOR 2/4] Opening raw TLS socket to origin candidate...",
+        "[VECTOR 2/4] Probing with 10 crafted ClientHello packets..."
+      ],
+      fingerprint: "JARM(443/tcp)",
+      compute: function () { return "27d3cd27d29d28d000042d43d000005db02b3f0e7f6c8a1b9c1f2e0e3a4b7"; },
+      matchLabel: "JARM matches origin candidate 185.220.101.42",
+      status: "MATCHED"
+    },
+    {
+      name: "Status Leak (mod_status)",
+      logLines: [
+        "[VECTOR 3/4] Requesting /server-status over clearnet mirror...",
+        "[VECTOR 3/4] Apache mod_status endpoint is world-readable."
+      ],
+      fingerprint: "GET /server-status",
+      compute: function () { return "X-Forwarded-For leak: 185.220.101.42"; },
+      matchLabel: "True host IP exposed in worker connection table",
+      status: "MATCHED"
+    },
+    {
+      name: "Origin Correlation",
+      logLines: [
+        "[VECTOR 4/4] Cross-referencing 3 independent vectors...",
+        "[VECTOR 4/4] Resolving ASN and geolocation for candidate IP..."
+      ],
+      fingerprint: "185.220.101.42",
+      compute: function () { return "AS16276 OVH SAS \u2022 Munich, Germany"; },
+      matchLabel: "Discovered Origin Clearnet IP: 185.220.101.42",
+      status: "CONFIRMED"
+    }
+  ];
+
+  function appendLog(line) {
+    elTerminal.textContent += (elTerminal.textContent.endsWith("\n") || elTerminal.dataset.started !== "1" ? "" : "\n") + line;
+    elTerminal.dataset.started = "1";
+    elTerminal.scrollTop = elTerminal.scrollHeight;
+  }
+
+  function resetLog() {
+    elTerminal.textContent = "";
+    elTerminal.dataset.started = "0";
+  }
+
+  function addTableRow(v, result) {
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td>" + util.escapeHtml(v.name) + "</td>" +
+      "<td>" + util.escapeHtml(v.fingerprint) + " \u2192 " + util.escapeHtml(result) + "</td>" +
+      "<td>" + util.escapeHtml(v.matchLabel) + "</td>" +
+      '<td><span class="tag solid">' + util.escapeHtml(v.status) + "</span></td>";
+    elTableBody.appendChild(tr);
+  }
+
+  async function runRecon() {
+    var target = elTarget.value.trim() || "http://p4lx7e22kq6dreadmarket.onion";
+    elExecute.disabled = true;
+    elExecute.textContent = "Scanning...";
+    elStatus.textContent = "STATUS: SCANNING";
+    resetLog();
+    elTableBody.innerHTML = "";
+    elTableBody.dataset.empty = "0";
+    elSummary.innerHTML = '<div class="placeholder" style="padding:20px;">Scan in progress...</div>';
+
+    appendLog("[INIT] Target: " + target);
+    appendLog("[INIT] Proxy: " + (elProxyTgl.checked ? "SOCKS5 127.0.0.1:9050 (active)" : "DIRECT (proxy disabled)"));
+    await util.sleep(350);
+
+    var results = [];
+    for (var i = 0; i < VECTORS.length; i++) {
+      var v = VECTORS[i];
+      for (var j = 0; j < v.logLines.length; j++) {
+        appendLog(v.logLines[j]);
+        await util.sleep(260);
+      }
+      var result = v.compute();
+      appendLog("[VECTOR " + (i + 1) + "/4] Result: " + result);
+      appendLog("[VECTOR " + (i + 1) + "/4] " + v.matchLabel);
+      appendLog("");
+      addTableRow(v, result);
+      results.push({ vector: v.name, fingerprint: v.fingerprint, result: result, match: v.matchLabel, status: v.status });
+      elLogCount.textContent = (i + 1) + " / 4 vectors";
+      await util.sleep(200);
+    }
+
+    appendLog("[COMPLETE] Origin discovery finished. Confidence: HIGH (3 independent corroborating vectors).");
+
+    var originIp = "185.220.101.42";
+    var originGeo = "Munich, Germany";
+    var originAsn = "AS16276 OVH SAS";
+
+    elSummary.innerHTML =
+      '<table class="data" style="border:0;">' +
+      '<tr><td style="border-left:0;">Origin IP</td><td style="border-right:0; font-weight:700;">' + originIp + "</td></tr>" +
+      '<tr><td style="border-left:0;">Location</td><td style="border-right:0;">' + originGeo + "</td></tr>" +
+      '<tr><td style="border-left:0;">ASN</td><td style="border-right:0;">' + originAsn + "</td></tr>" +
+      '<tr><td style="border-left:0; border-bottom:0;">Target</td><td style="border-right:0; border-bottom:0;">' + util.escapeHtml(target) + "</td></tr>" +
+      "</table>";
+
+    window.AETHER.data.stage1 = {
+      target: target,
+      proxyUsed: elProxyTgl.checked,
+      originIp: originIp,
+      originGeo: originGeo,
+      originAsn: originAsn,
+      vectors: results,
+      completedAt: new Date().toISOString()
+    };
+    window.AETHER.stageComplete[1] = true;
+    elStatus.textContent = "STATUS: COMPLETE";
+    elExecute.disabled = false;
+    elExecute.textContent = "Re-run Recon";
+  }
+
+  elExecute.addEventListener("click", function () {
+    runRecon().catch(function (err) {
+      appendLog("[ERROR] " + err.message);
+      elStatus.textContent = "STATUS: ERROR";
+      elExecute.disabled = false;
+      elExecute.textContent = "Execute Recon";
+    });
+  });
+})();
+
+/* =====================================================================
+   STAGE 02 MODULE : Threat Correlation & AI Attribution
+   2.1 Knowledge graph (SVG, hand-rolled force-free radial layout)
+   2.2 Stylometry lab (real client-side n-gram cosine similarity)
+   2.3 Diurnal UTC timezone engine (histogram + sleep-window inference)
+   ===================================================================== */
+(function () {
+  "use strict";
+  var util = window.AETHER.util;
+
+  /* =====================================================================
+     2.1 KNOWLEDGE GRAPH
+     ===================================================================== */
+  var NODES = [
+    { id: "actor",  x: 350, y: 220, w: 220, h: 46, label: "Suspected Actor", sub: "APT-091 / RedShark", central: true,
+      detail: { "Cluster ID": "APT-091", "Alias Cluster": "RedShark", "Confidence": "94.8%", "First Seen": "2025-03-11", "Status": "Active" } },
+    { id: "pgp",     x: 130, y: 65,  w: 190, h: 44, label: "PGP Key", sub: "4D9E27BC91...",
+      detail: { "Fingerprint": "4D9E 27BC 918A 4F02 C731  09AE 2C5B 88E1 40FA 7D3C", "Key Type": "RSA-4096", "Created": "2024-11-02", "Used On": "Dread, Exploit.in" } },
+    { id: "btc",     x: 570, y: 65,  w: 190, h: 44, label: "BTC Transactions", sub: "Peel-chain cluster",
+      detail: { "Root Address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "Cluster Type": "Peel chain", "Est. Volume": "18.4 BTC", "Hops Traced": "6" } },
+    { id: "alias",   x: 135, y: 375, w: 220, h: 44, label: "Accounts / Aliases", sub: "ZeroTrace \u2194 ShadowByte",
+      detail: { "Handle 1": "ZeroTrace @ Dread", "Handle 2": "ShadowByte @ Exploit.in", "Link Basis": "Stylometry + timing", "Overlap Window": "14 months" } },
+    { id: "infra",   x: 565, y: 375, w: 210, h: 44, label: "Infrastructure", sub: "185.220.101.42",
+      detail: { "Origin IP": "185.220.101.42", "ASN": "AS16276 OVH SAS", "Location": "Munich, Germany", "Discovery": "Stage 01 recon" } },
+    { id: "style",   x: 350, y: 410, w: 210, h: 44, label: "Writing Style", sub: "Stylometric profile",
+      detail: { "Profile": "High punctuation regularity", "Signature Phrase": "\"no downtime, no drama, no excuses\"", "Match Basis": "Stage 02 lab" } }
+  ];
+  var EDGES = [
+    ["actor", "pgp"], ["actor", "btc"], ["actor", "alias"], ["actor", "infra"], ["actor", "style"]
+  ];
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs) {
+    var el = document.createElementNS(svgNS, tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  var graphSvg = document.getElementById("s2-graph");
+  var inspector = document.getElementById("s2-inspector");
+  var selectedNode = null;
+
+  function nodeById(id) { return NODES.filter(function (n) { return n.id === id; })[0]; }
+
+  function renderGraph() {
+    graphSvg.innerHTML = "";
+
+    var edgeLayer = svgEl("g", { id: "edge-layer" });
+    var nodeLayer = svgEl("g", { id: "node-layer" });
+    graphSvg.appendChild(edgeLayer);
+    graphSvg.appendChild(nodeLayer);
+
+    EDGES.forEach(function (pair) {
+      var a = nodeById(pair[0]), b = nodeById(pair[1]);
+      var line = svgEl("line", {
+        x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+        class: "g-edge", "data-a": a.id, "data-b": b.id
+      });
+      edgeLayer.appendChild(line);
+    });
+
+    NODES.forEach(function (n) {
+      var g = svgEl("g", {
+        class: "g-node", tabindex: "0", role: "button",
+        "aria-label": n.label + " " + n.sub, "data-id": n.id
+      });
+      var rectAttrs = {
+        x: n.x - n.w / 2, y: n.y - n.h / 2, width: n.w, height: n.h,
+        fill: n.central ? "#000" : "#fff",
+        stroke: "#000", "stroke-width": n.central ? 2 : 1
+      };
+      g.appendChild(svgEl("rect", rectAttrs));
+      var t1 = svgEl("text", {
+        x: n.x, y: n.y - 3, "text-anchor": "middle",
+        "font-size": "12", "font-weight": "700",
+        fill: n.central ? "#fff" : "#000"
+      });
+      t1.textContent = n.label;
+      var t2 = svgEl("text", {
+        x: n.x, y: n.y + 13, "text-anchor": "middle",
+        "font-size": "10", fill: n.central ? "#e2e8f0" : "#0f172a"
+      });
+      t2.textContent = n.sub;
+      g.appendChild(t1);
+      g.appendChild(t2);
+      nodeLayer.appendChild(g);
+
+      g.addEventListener("click", function () { selectNode(n.id); });
+      g.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectNode(n.id); }
+      });
+    });
+  }
+
+  function selectNode(id) {
+    selectedNode = id;
+    var edges = graphSvg.querySelectorAll(".g-edge");
+    edges.forEach(function (e) {
+      var touches = e.getAttribute("data-a") === id || e.getAttribute("data-b") === id;
+      e.classList.toggle("hot", touches);
+      e.classList.toggle("dim", !touches);
+    });
+    var n = nodeById(id);
+    var rows = Object.keys(n.detail).map(function (k) {
+      return "<tr><td style='border-left:0;'>" + util.escapeHtml(k) + "</td><td style='border-right:0; font-weight:700;'>" + util.escapeHtml(n.detail[k]) + "</td></tr>";
+    }).join("");
+    inspector.innerHTML =
+      '<div style="font-family:var(--font-mono); font-weight:700; font-size:13px; margin-bottom:8px; text-transform:uppercase;">' + util.escapeHtml(n.label) + "</div>" +
+      '<table class="data" style="border:0; width:100%;">' + rows + "</table>";
+    document.getElementById("s2-graph-hint").textContent = "Selected: " + n.label;
+  }
+
+  renderGraph();
+
+  /* =====================================================================
+     2.2 STYLOMETRY LAB
+     Real client-side computation: char 3-gram + word 1-gram/2-gram
+     frequency vectors, combined via cosine similarity.
+     ===================================================================== */
+  var elA = document.getElementById("s2-sample-a");
+  var elB = document.getElementById("s2-sample-b");
+  var elRun = document.getElementById("s2-run-style");
+  var elSwap = document.getElementById("s2-swap-style");
+  var elResult = document.getElementById("s2-style-result");
+  var elStyleTag = document.getElementById("s2-style-tag");
+
+  var UNRELATED_SAMPLE = "Selling fresh produce delivery slots for the downtown co-op, pickup only on Saturdays. Please bring your own bags and arrive on time, late pickups will be given to the next person in line. Cash or card accepted, no exceptions this month due to a system upgrade.";
+  var originalB = elB.value;
+  var swapped = false;
+  elSwap.addEventListener("click", function () {
+    swapped = !swapped;
+    elB.value = swapped ? UNRELATED_SAMPLE : originalB;
+    elSwap.textContent = swapped ? "Restore Sample B (ShadowByte)" : "Load Unrelated Sample B";
+  });
+
+  function tokenizeWords(text) {
+    return text.toLowerCase().match(/[a-z0-9']+/g) || [];
+  }
+
+  function charNgrams(text, n) {
+    var clean = text.toLowerCase().replace(/\s+/g, " ").trim();
+    var grams = [];
+    for (var i = 0; i <= clean.length - n; i++) grams.push(clean.slice(i, i + n));
+    return grams;
+  }
+
+  function wordNgrams(words, n) {
+    var grams = [];
+    for (var i = 0; i <= words.length - n; i++) grams.push(words.slice(i, i + n).join(" "));
+    return grams;
+  }
+
+  function freqMap(items) {
+    var m = Object.create(null);
+    items.forEach(function (it) { m[it] = (m[it] || 0) + 1; });
+    return m;
+  }
+
+  function cosineSim(mapA, mapB) {
+    var keys = {};
+    for (var k in mapA) keys[k] = true;
+    for (var k2 in mapB) keys[k2] = true;
+    var dot = 0, magA = 0, magB = 0;
+    for (var key in keys) {
+      var a = mapA[key] || 0, b = mapB[key] || 0;
+      dot += a * b;
+      magA += a * a;
+      magB += b * b;
+    }
+    if (magA === 0 || magB === 0) return 0;
+    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+  }
+
+  function punctuationProfile(text) {
+    var counts = { ",": 0, ".": 0, ";": 0, "-": 0, "!": 0, "?": 0 };
+    for (var i = 0; i < text.length; i++) {
+      if (counts.hasOwnProperty(text[i])) counts[text[i]]++;
+    }
+    var total = text.length || 1;
+    var profile = {};
+    Object.keys(counts).forEach(function (p) { profile[p] = counts[p] / total; });
+    return profile;
+  }
+
+  function punctuationConsistency(pa, pb) {
+    var keys = Object.keys(pa);
+    var diffs = keys.map(function (k) { return Math.abs(pa[k] - pb[k]); });
+    var avgDiff = diffs.reduce(function (a, b) { return a + b; }, 0) / keys.length;
+    return Math.max(0, 1 - avgDiff * 40); // scaled heuristic, bounded [0,1]
+  }
+
+  function vocabOverlap(wordsA, wordsB) {
+    var setA = {}, setB = {};
+    wordsA.forEach(function (w) { setA[w] = true; });
+    wordsB.forEach(function (w) { setB[w] = true; });
+    var union = {}, inter = 0;
+    Object.keys(setA).forEach(function (w) { union[w] = true; if (setB[w]) inter++; });
+    Object.keys(setB).forEach(function (w) { union[w] = true; });
+    var unionSize = Object.keys(union).length || 1;
+    return inter / unionSize;
+  }
+
+  function runStylometry() {
+    var textA = elA.value.trim();
+    var textB = elB.value.trim();
+    if (!textA || !textB) {
+      elResult.innerHTML = '<div class="placeholder" style="padding:16px;">Both samples must contain text.</div>';
+      return;
+    }
+
+    var wordsA = tokenizeWords(textA), wordsB = tokenizeWords(textB);
+    var c3a = freqMap(charNgrams(textA, 3)), c3b = freqMap(charNgrams(textB, 3));
+    var w1a = freqMap(wordNgrams(wordsA, 1)), w1b = freqMap(wordNgrams(wordsB, 1));
+    var w2a = freqMap(wordNgrams(wordsA, 2)), w2b = freqMap(wordNgrams(wordsB, 2));
+
+    var simChar3 = cosineSim(c3a, c3b);
+    var simWord1 = cosineSim(w1a, w1b);
+    var simWord2 = cosineSim(w2a, w2b);
+    var combined = simChar3 * 0.5 + simWord1 * 0.3 + simWord2 * 0.2;
+    var combinedPct = Math.round(combined * 1000) / 10;
+
+    var pa = punctuationProfile(textA), pb = punctuationProfile(textB);
+    var punctScore = punctuationConsistency(pa, pb);
+    var punctPct = Math.round(punctScore * 1000) / 10;
+
+    var overlap = vocabOverlap(wordsA, wordsB);
+    var overlapPct = Math.round(overlap * 1000) / 10;
+
+    var verdict = combinedPct >= 80 ? "HIGH MATCH" : combinedPct >= 55 ? "MODERATE MATCH" : "LOW MATCH";
+
+    elResult.innerHTML =
+      '<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0; border:1px solid #000;">' +
+      metricCell("Cosine Similarity", combinedPct + "%", "char 3-gram 50% \u2022 word 1-gram 30% \u2022 word 2-gram 20%") +
+      metricCell("Punctuation Consistency", punctPct + "%", "comma / period / dash / bang / query density delta") +
+      metricCell("Vocabulary Overlap", overlapPct + "%", "Jaccard index over unique word sets") +
+      "</div>" +
+      '<div style="margin-top:10px; font-family:var(--font-mono); font-size:12px;">' +
+      "Verdict: <span class=\"tag solid\">" + verdict + "</span> " +
+      "&mdash; words A: " + wordsA.length + ", words B: " + wordsB.length +
+      "</div>";
+
+    elStyleTag.textContent = verdict;
+    elStyleTag.classList.toggle("solid", combinedPct >= 55);
+
+    window.AETHER.data.stage2 = window.AETHER.data.stage2 || {};
+    window.AETHER.data.stage2.stylometry = {
+      cosineSimilarityPct: combinedPct,
+      punctuationConsistencyPct: punctPct,
+      vocabOverlapPct: overlapPct,
+      verdict: verdict,
+      computedAt: new Date().toISOString()
+    };
+  }
+
+  function metricCell(label, value, note) {
+    return '<div style="padding:12px 14px; border-right:1px solid #000;">' +
+      '<div style="font-family:var(--font-mono); font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--slate-900);">' + label + "</div>" +
+      '<div style="font-family:var(--font-mono); font-size:22px; font-weight:700; margin:4px 0;">' + value + "</div>" +
+      '<div style="font-family:var(--font-mono); font-size:9px; color:var(--slate-900);">' + note + "</div>" +
+      "</div>";
+  }
+
+  elRun.addEventListener("click", runStylometry);
+
+  /* =====================================================================
+     2.3 DIURNAL UTC TIMEZONE ENGINE
+     Simulated 212-post dataset with a realistic 6h nocturnal trough,
+     rendered as a real SVG bar chart; sleep window computed from data.
+     ===================================================================== */
+  function buildSimulatedHourlyDistribution() {
+    // Target dataset: exactly 212 posts. Shape: near-silent trough at UTC 18:00-23:59
+    // (a subject sleeping ~23:30-05:30 local at UTC+05:30), a morning ramp, a midday
+    // peak and an evening tail. Deterministic weights, largest-remainder rounding so
+    // the total is exactly 212 on every run.
+    var TOTAL = 212;
+    var weights = [
+      // UTC hour: 00-05 is local 05:30-10:30 (waking up), 06-11 is local morning/midday
+      2.5, 4.0, 5.5, 7.5, 9.0, 10.0,   // 00-05
+      11.0, 10.5, 9.0, 8.0, 9.5, 10.5, // 06-11
+      11.5, 10.0, 8.5, 7.0, 5.5, 3.5,  // 12-17
+      0.3, 0.2, 0.1, 0.1, 0.2, 0.3     // 18-23 (nocturnal trough, near-silent)
+    ];
+    var sum = weights.reduce(function (a, b) { return a + b; }, 0);
+    var raw = weights.map(function (w) { return (w / sum) * TOTAL; });
+    var out = raw.map(Math.floor);
+    var remainder = TOTAL - out.reduce(function (a, b) { return a + b; }, 0);
+    var order = raw.map(function (v, i) { return { i: i, frac: v - Math.floor(v) }; })
+      .sort(function (a, b) { return b.frac - a.frac; });
+    for (var k = 0; k < remainder; k++) out[order[k].i]++;
+    return out;
+  }
+
+  var elRunDiurnal = document.getElementById("s2-run-diurnal");
+  var elDiurnalResult = document.getElementById("s2-diurnal-result");
+  var elDiurnalTag = document.getElementById("s2-diurnal-tag");
+  var histSvg = document.getElementById("s2-histogram");
+
+  function findSleepWindow(hours) {
+    // Find the 6-hour contiguous window (wrapping) with the lowest sum of activity.
+    var n = hours.length, bestStart = 0, bestSum = Infinity;
+    for (var start = 0; start < n; start++) {
+      var sum = 0;
+      for (var k = 0; k < 6; k++) sum += hours[(start + k) % n];
+      if (sum < bestSum) { bestSum = sum; bestStart = start; }
+    }
+    return { start: bestStart, end: (bestStart + 6) % n };
+  }
+
+  function inferTimezone(sleepStart) {
+    // Heuristic: assume sleep begins locally around 23:00-01:00.
+    // offsetHours = localSleepStart - UTCsleepStart (mod 24), mapped to nearest half-hour zone.
+    var assumedLocalSleepStart = 23.5;
+    var raw = assumedLocalSleepStart - sleepStart;
+    raw = ((raw % 24) + 24) % 24; // normalize to [0, 24)
+    if (raw > 12) raw -= 24;      // choose the shorter signed representation, e.g. 20.5 -> -3.5
+    // Snap to common half-hour offsets
+    var snapped = Math.round(raw * 2) / 2;
+    var sign = snapped >= 0 ? "+" : "-";
+    var abs = Math.abs(snapped);
+    var hh = Math.floor(abs);
+    var mm = Math.round((abs - hh) * 60);
+    var label = "UTC " + sign + String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+    var zoneName = Math.abs(snapped - 5.5) < 0.26 ? " [IST]" : "";
+    return label + zoneName;
+  }
+
+  function renderHistogram(hours, sleepWindow) {
+    histSvg.innerHTML = "";
+    var padL = 34, padB = 26, padT = 10, padR = 10;
+    var w = 720 - padL - padR, h = 260 - padT - padB;
+    var barW = w / 24;
+    var maxV = Math.max.apply(null, hours) || 1;
+
+    var axis = svgEl("g", {});
+    histSvg.appendChild(axis);
+    [0, 0.5, 1].forEach(function (frac) {
+      var y = padT + h - frac * h;
+      var line = svgEl("line", { x1: padL, y1: y, x2: padL + w, y2: y, stroke: "#e2e8f0", "stroke-width": 1 });
+      axis.appendChild(line);
+    });
+    var axisLine = svgEl("line", { x1: padL, y1: padT + h, x2: padL + w, y2: padT + h, stroke: "#000", "stroke-width": 1 });
+    axis.appendChild(axisLine);
+
+    for (var i = 0; i < 24; i++) {
+      var val = hours[i];
+      var barH = (val / maxV) * h;
+      var x = padL + i * barW;
+      var y = padT + h - barH;
+      var inSleep = sleepWindow.start <= sleepWindow.end
+        ? (i >= sleepWindow.start && i < sleepWindow.end)
+        : (i >= sleepWindow.start || i < sleepWindow.end);
+      var rect = svgEl("rect", {
+        class: "bar", x: x + 1, y: y, width: Math.max(1, barW - 2), height: Math.max(0, barH),
+        fill: inSleep ? "#e2e8f0" : "#000",
+        stroke: "#000", "stroke-width": inSleep ? 1 : 0,
+        "data-hour": i, "data-val": val
+      });
+      rect.appendChild(svgEl("title", {})).textContent = "";
+      rect.querySelector("title").textContent = String(i).padStart(2, "0") + ":00 UTC \u2014 " + val + " posts";
+      histSvg.appendChild(rect);
+
+      if (i % 3 === 0) {
+        var label = svgEl("text", { x: x + barW / 2, y: padT + h + 16, "text-anchor": "middle", "font-size": "9", fill: "#0f172a" });
+        label.textContent = String(i).padStart(2, "0");
+        histSvg.appendChild(label);
+      }
+
+      rect.addEventListener("click", (function (hour, val, inSleep) {
+        return function () {
+          elDiurnalResult.querySelector("#s2-hour-detail") && elDiurnalResult.querySelector("#s2-hour-detail").remove();
+          var det = document.createElement("div");
+          det.id = "s2-hour-detail";
+          det.style.marginTop = "8px";
+          det.style.fontFamily = "var(--font-mono)";
+          det.style.fontSize = "11px";
+          det.textContent = String(hour).padStart(2, "0") + ":00\u2013" + String((hour + 1) % 24).padStart(2, "0") + ":00 UTC \u2014 " + val + " posts" + (inSleep ? " (within inferred sleep window)" : "");
+          elDiurnalResult.appendChild(det);
+        };
+      })(i, val, inSleep));
+    }
+
+    var yLabel = svgEl("text", { x: 8, y: padT + 4, "font-size": "9", fill: "#0f172a" });
+    yLabel.textContent = "posts";
+    histSvg.appendChild(yLabel);
+  }
+
+  function runDiurnal() {
+    var hours = buildSimulatedHourlyDistribution();
+    var totalPosts = hours.reduce(function (a, b) { return a + b; }, 0);
+    var sleepWindow = findSleepWindow(hours);
+    var tz = inferTimezone(sleepWindow.start);
+
+    renderHistogram(hours, sleepWindow);
+
+    var startStr = String(sleepWindow.start).padStart(2, "0") + ":00";
+    var endStr = String(sleepWindow.end).padStart(2, "0") + ":00";
+
+    elDiurnalResult.innerHTML =
+      '<table class="data" style="border:0; width:100%;">' +
+      '<tr><td style="border-left:0;">Total posts analyzed</td><td style="border-right:0; font-weight:700;">' + totalPosts + "</td></tr>" +
+      '<tr><td style="border-left:0;">Nocturnal inactivity trough</td><td style="border-right:0; font-weight:700;">' + startStr + "\u2013" + endStr + " UTC</td></tr>" +
+      '<tr><td style="border-left:0; border-bottom:0;">Estimated geographic offset</td><td style="border-right:0; border-bottom:0; font-weight:700;">' + tz + " Sleep Window: " + startStr + "-" + endStr + " UTC</td></tr>" +
+      "</table>";
+
+    elDiurnalTag.textContent = "COMPUTED";
+    elDiurnalTag.classList.add("solid");
+
+    window.AETHER.data.stage2 = window.AETHER.data.stage2 || {};
+    window.AETHER.data.stage2.diurnal = {
+      hourlyDistribution: hours,
+      totalPosts: totalPosts,
+      sleepWindowStartUtc: sleepWindow.start,
+      sleepWindowEndUtc: sleepWindow.end,
+      estimatedOffset: tz,
+      computedAt: new Date().toISOString()
+    };
+  }
+
+  elRunDiurnal.addEventListener("click", runDiurnal);
+
+  window.AETHER.stageComplete[2] = true; // Stage 02 UI is fully interactive on load
+})();
+
+/* =====================================================================
+   STAGE 03 MODULE : Evidence Dossier & Government Integration
+   3.1 Attribution summary  3.2 Chain of custody
+   3.3 Real exports: STIX 2.1 JSON, Forensic CSV, court-ready print
+   ===================================================================== */
+(function () {
+  "use strict";
+  var util = window.AETHER.util;
+
+  /* ---------- Case constants (from the PS 26151 specification) ---------- */
+  var CASE = {
+    evidenceId: "AT-2026-0047",
+    handles: "ZeroTrace / ShadowByte (APT-091)",
+    originIp: "185.220.101.42",
+    confidence: "94.8%",
+    confidenceNote: "Cryptographic Proof + Stylometry",
+    sealHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    pgp: "4D9E27BC918A4F02C73109AE2C5B88E140FA7D3C",
+    btcRoot: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+    onion: "http://p4lx7e22kq6dreadmarket.onion",
+    aliasDread: "ZeroTrace",
+    aliasExploit: "ShadowByte",
+    asn: "AS16276 OVH SAS",
+    geo: "Munich, Germany"
+  };
+
+  var CUSTODY = [
+    ["2026-09-19T09:02:11Z", "Analyst-01 (NTRO)",     "Target .onion acquired and logged",            "Verified"],
+    ["2026-09-19T09:04:37Z", "AETHER Recon Engine",   "Favicon mmh3 and JARM fingerprints captured",  "Verified"],
+    ["2026-09-19T09:06:52Z", "AETHER Recon Engine",   "Origin IP recovered via mod_status leak",      "Verified"],
+    ["2026-09-19T09:15:08Z", "AETHER Graph Engine",   "PGP, BTC and alias entities correlated",       "Verified"],
+    ["2026-09-19T09:21:44Z", "AETHER Stylometry Lab", "Cosine similarity comparison completed",       "Verified"],
+    ["2026-09-19T09:26:03Z", "AETHER Diurnal Engine", "Timezone offset inferred from posting trough", "Verified"],
+    ["2026-09-19T09:31:29Z", "Analyst-01 (NTRO)",     "Dossier sealed with SHA-256 digest",           "Verified"]
+  ];
+
+  /* ---------- 3.1 Summary card ---------- */
+  var summaryRows = [
+    ["Evidence ID", CASE.evidenceId],
+    ["Target Handle", CASE.handles],
+    ["Discovered Origin IP", CASE.originIp + "  (" + CASE.geo + " | " + CASE.asn + ")"],
+    ["Calibrated Confidence Score", CASE.confidence + "  (" + CASE.confidenceNote + ")"],
+    ["Immutable SHA-256 Digital Hash Seal", CASE.sealHash],
+    ["Chain of Custody", "Verified (" + CUSTODY.length + " entries)"]
+  ];
+  var sumBody = document.querySelector("#s3-summary-table tbody");
+  summaryRows.forEach(function (r) {
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td style="width:30%; border-left:0; font-weight:700; background:var(--slate-50);">' + util.escapeHtml(r[0]) + "</td>" +
+      '<td style="border-right:0; word-break:break-all;">' + util.escapeHtml(r[1]) + "</td>";
+    sumBody.appendChild(tr);
+  });
+
+  /* ---------- 3.2 Custody ledger ---------- */
+  var custBody = document.getElementById("s3-custody-body");
+  CUSTODY.forEach(function (c, i) {
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td>" + (i + 1) + "</td><td>" + util.escapeHtml(c[0]) + "</td><td>" + util.escapeHtml(c[1]) +
+      "</td><td>" + util.escapeHtml(c[2]) + '</td><td><span class="tag solid">' + util.escapeHtml(c[3]) + "</span></td>";
+    custBody.appendChild(tr);
+  });
+
+  /* ---------- Helpers ---------- */
+  function uuid4() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    var b = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    var h = Array.prototype.map.call(b, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+    return h.slice(0, 8) + "-" + h.slice(8, 12) + "-" + h.slice(12, 16) + "-" + h.slice(16, 20) + "-" + h.slice(20);
+  }
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+
+  function nowIso() {
+    // STIX timestamps: RFC 3339 UTC with millisecond precision and trailing Z
+    return new Date().toISOString();
+  }
+
+  function setExportTag(text) {
+    var tag = document.getElementById("s3-export-tag");
+    tag.textContent = text;
+    tag.classList.add("solid");
+  }
+
+  function logExport(line) {
+    var el = document.getElementById("s3-export-log");
+    var div = document.createElement("div");
+    div.textContent = line;
+    div.style.borderTop = "1px solid var(--slate-200)";
+    div.style.marginTop = "4px";
+    div.style.paddingTop = "4px";
+    el.appendChild(div);
+  }
+
+  async function sha256Hex(text) {
+    if (window.crypto && window.crypto.subtle) {
+      var buf = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+    }
+    return null; // insecure contexts may lack subtle crypto; caller handles null
+  }
+
+  /* ---------- STIX 2.1 bundle ---------- */
+  function buildStixBundle() {
+    var ts = nowIso();
+    var ids = {
+      actor: "threat-actor--" + uuid4(),
+      identity: "identity--" + uuid4(),
+      ip: "ipv4-addr--" + uuid4(),
+      indPgp: "indicator--" + uuid4(),
+      indBtc: "indicator--" + uuid4(),
+      indIp: "indicator--" + uuid4(),
+      report: "report--" + uuid4(),
+      relIp: "relationship--" + uuid4(),
+      relPgp: "relationship--" + uuid4(),
+      relBtc: "relationship--" + uuid4(),
+      relIdent: "relationship--" + uuid4()
+    };
+
+    var common = function (type, id) {
+      return { type: type, spec_version: "2.1", id: id, created: ts, modified: ts };
+    };
+    var merge = function (a, b) { for (var k in b) a[k] = b[k]; return a; };
+
+    var identity = merge(common("identity", ids.identity), {
+      name: "AETHER Forensic Attribution Workbench",
+      identity_class: "system",
+      description: "Producer of this bundle. Case " + CASE.evidenceId + " for NTRO / SIH 2026 PS 26151."
+    });
+
+    var actor = merge(common("threat-actor", ids.actor), {
+      name: "APT-091 (RedShark)",
+      description: "Suspected actor operating as " + CASE.aliasDread + " on Dread and " + CASE.aliasExploit + " on Exploit.in.",
+      threat_actor_types: ["criminal"],
+      aliases: [CASE.aliasDread, CASE.aliasExploit, "RedShark"],
+      roles: ["malware-author"],
+      sophistication: "advanced",
+      resource_level: "organization",
+      primary_motivation: "personal-gain",
+      confidence: 95,
+      created_by_ref: ids.identity,
+      labels: ["dark-web", "de-anonymized"],
+      external_references: [
+        { source_name: "aether-evidence-id", external_id: CASE.evidenceId },
+        { source_name: "sha256-seal", description: CASE.sealHash }
+      ]
+    });
+
+    var ip = {
+      type: "ipv4-addr", spec_version: "2.1", id: ids.ip, value: CASE.originIp
+    };
+
+    var indIp = merge(common("indicator", ids.indIp), {
+      name: "Recovered origin IP of dark web market",
+      description: "Origin clearnet IP recovered via Apache mod_status leak. " + CASE.geo + ", " + CASE.asn + ".",
+      indicator_types: ["attribution"],
+      pattern: "[ipv4-addr:value = '" + CASE.originIp + "']",
+      pattern_type: "stix",
+      valid_from: ts,
+      confidence: 95,
+      created_by_ref: ids.identity
+    });
+
+    var indPgp = merge(common("indicator", ids.indPgp), {
+      name: "PGP key fingerprint linked to APT-091",
+      indicator_types: ["attribution"],
+      pattern: "[x509-certificate:hashes.'SHA-1' = '" + CASE.pgp + "']",
+      pattern_type: "stix",
+      valid_from: ts,
+      confidence: 90,
+      created_by_ref: ids.identity,
+      description: "40 character PGP fingerprint reused across Dread and Exploit.in profiles."
+    });
+
+    var indBtc = merge(common("indicator", ids.indBtc), {
+      name: "Bitcoin peel-chain root address",
+      indicator_types: ["attribution"],
+      pattern: "[user-account:account_login = '" + CASE.btcRoot + "']",
+      pattern_type: "stix",
+      valid_from: ts,
+      confidence: 85,
+      created_by_ref: ids.identity,
+      description: "Root of a co-spent peel-chain cluster (estimated 18.4 BTC over 6 hops)."
+    });
+
+    var rel = function (id, src, type, tgt, note) {
+      return merge(common("relationship", id), {
+        relationship_type: type, source_ref: src, target_ref: tgt, description: note, created_by_ref: ids.identity
+      });
+    };
+
+    var report = merge(common("report", ids.report), {
+      name: "Attribution Report " + CASE.evidenceId,
+      description: "Calibrated confidence " + CASE.confidence + " (" + CASE.confidenceNote + ").",
+      report_types: ["attribution", "threat-actor"],
+      published: ts,
+      created_by_ref: ids.identity,
+      object_refs: [ids.actor, ids.indIp, ids.indPgp, ids.indBtc, ids.ip]
+    });
+
+    return {
+      type: "bundle",
+      id: "bundle--" + uuid4(),
+      objects: [
+        identity, actor, ip, indIp, indPgp, indBtc,
+        rel(ids.relIp, ids.indIp, "indicates", ids.actor, "Origin IP indicates APT-091 infrastructure."),
+        rel(ids.relPgp, ids.indPgp, "indicates", ids.actor, "PGP fingerprint indicates APT-091."),
+        rel(ids.relBtc, ids.indBtc, "indicates", ids.actor, "BTC cluster indicates APT-091."),
+        rel(ids.relIdent, ids.actor, "attributed-to", ids.identity, "Attribution performed by AETHER."),
+        report
+      ]
+    };
+  }
+
+  /* ---------- CSV ---------- */
+  function csvCell(v) {
+    var s = String(v == null ? "" : v);
+    // Defuse spreadsheet formula injection, then apply RFC 4180 quoting
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  function buildCsv() {
+    var s1 = window.AETHER.data.stage1;
+    var header = ["entity_type", "entity_value", "description", "source_stage", "confidence"];
+    var rows = [
+      ["evidence_id",    CASE.evidenceId,                 "Case reference",                                  "case",    ""],
+      ["threat_actor",   "APT-091 (RedShark)",            "Suspected actor cluster",                         "stage_2", CASE.confidence],
+      ["alias",          CASE.aliasDread + " @ Dread",    "Forum alias",                                     "stage_2", "94.8%"],
+      ["alias",          CASE.aliasExploit + " @ Exploit.in", "Forum alias linked by stylometry",            "stage_2", "94.8%"],
+      ["onion_service",  CASE.onion,                      "Target hidden service",                           "stage_1", ""],
+      ["ipv4",           CASE.originIp,                   "Discovered origin IP, " + CASE.geo,               "stage_1", "95%"],
+      ["asn",            CASE.asn,                        "Hosting provider of origin IP",                   "stage_1", ""],
+      ["favicon_mmh3",   "-129482710",                    "Favicon MurmurHash3",                             "stage_1", ""],
+      ["jarm",           "27d3cd27d29d28d000042d43d000005db02b3f0e7f6c8a1b9c1f2e0e3a4b7", "JARM TLS signature", "stage_1", ""],
+      ["pgp_fingerprint", CASE.pgp,                       "40 character PGP fingerprint",                    "stage_2", "90%"],
+      ["btc_wallet",     CASE.btcRoot,                    "Root of co-spent peel-chain cluster",             "stage_2", "85%"],
+      ["sha256_seal",    CASE.sealHash,                   "Immutable digital hash seal",                     "stage_3", ""]
+    ];
+
+    if (window.AETHER.data.stage2 && window.AETHER.data.stage2.stylometry) {
+      var st = window.AETHER.data.stage2.stylometry;
+      rows.push(["stylometry_match", st.cosineSimilarityPct + "%", "Cosine similarity, verdict " + st.verdict, "stage_2", ""]);
+    }
+    if (window.AETHER.data.stage2 && window.AETHER.data.stage2.diurnal) {
+      var d = window.AETHER.data.stage2.diurnal;
+      rows.push(["timezone_offset", d.estimatedOffset, "Sleep window " + pad2(d.sleepWindowStartUtc) + ":00-" + pad2(d.sleepWindowEndUtc) + ":00 UTC", "stage_2", ""]);
+    }
+    if (s1) {
+      rows.push(["recon_run", s1.completedAt, "Stage 01 recon completed, proxy " + (s1.proxyUsed ? "on" : "off"), "stage_1", ""]);
+    }
+
+    var lines = [header].concat(rows).map(function (r) { return r.map(csvCell).join(","); });
+    return "\uFEFF" + lines.join("\r\n") + "\r\n"; // BOM keeps Excel happy with UTF-8
+  }
+
+  /* ---------- Print report ---------- */
+  function buildPrintReport() {
+    var esc = util.escapeHtml;
+    var st = window.AETHER.data.stage2 && window.AETHER.data.stage2.stylometry;
+    var di = window.AETHER.data.stage2 && window.AETHER.data.stage2.diurnal;
+    var generated = new Date().toISOString();
+
+    var sumHtml = summaryRows.map(function (r) {
+      return "<tr><th style='width:30%'>" + esc(r[0]) + "</th><td>" + esc(r[1]) + "</td></tr>";
+    }).join("");
+
+    var custHtml = CUSTODY.map(function (c, i) {
+      return "<tr><td class='pr-nowrap'>" + (i + 1) + "</td><td class='pr-nowrap'>" + esc(c[0]) + "</td><td>" + esc(c[1]) + "</td><td>" + esc(c[2]) + "</td><td class='pr-nowrap'>" + esc(c[3]) + "</td></tr>";
+    }).join("");
+
+    var extra = "";
+    if (st) extra += "<tr><th>Stylometric similarity</th><td>" + esc(st.cosineSimilarityPct + "% (" + st.verdict + ")") + "</td></tr>";
+    if (di) extra += "<tr><th>Inferred timezone</th><td>" + esc(di.estimatedOffset + ", sleep window " + pad2(di.sleepWindowStartUtc) + ":00-" + pad2(di.sleepWindowEndUtc) + ":00 UTC") + "</td></tr>";
+
+    document.getElementById("print-report").innerHTML =
+      '<div class="pr-head">' +
+        '<div><div class="pr-title">Forensic Attribution Report</div>' +
+        '<div style="font-family:var(--font-mono); font-size:9pt;">Project AETHER &middot; PS 26151 &middot; NTRO / SIH 2026</div></div>' +
+        '<div class="pr-meta">Evidence ID: ' + esc(CASE.evidenceId) + '<br>Generated: ' + esc(generated) + '</div>' +
+      '</div>' +
+      '<div class="pr-banner">Restricted &middot; For official law enforcement use only</div>' +
+      '<div class="pr-section"><h2>1. Attribution Summary</h2><table class="pr-table">' + sumHtml + extra + '</table></div>' +
+      '<div class="pr-section"><h2>2. Indicators of Attribution</h2><table class="pr-table">' +
+        '<tr><th>Indicator</th><th>Value</th></tr>' +
+        '<tr><td>Hidden service</td><td>' + esc(CASE.onion) + '</td></tr>' +
+        '<tr><td>Origin IP</td><td>' + esc(CASE.originIp) + '</td></tr>' +
+        '<tr><td>PGP fingerprint</td><td>' + esc(CASE.pgp) + '</td></tr>' +
+        '<tr><td>BTC root address</td><td>' + esc(CASE.btcRoot) + '</td></tr>' +
+        '<tr><td>Aliases</td><td>' + esc(CASE.aliasDread + " @ Dread; " + CASE.aliasExploit + " @ Exploit.in") + '</td></tr>' +
+      '</table></div>' +
+      '<div class="pr-section"><h2>3. Chain of Custody</h2><table class="pr-table"><tr><th style="width:5%">#</th><th style="width:25%">Timestamp (UTC)</th><th style="width:22%">Actor</th><th style="width:34%">Action</th><th style="width:14%">Status</th></tr>' + custHtml + '</table></div>' +
+      '<div class="pr-section"><h2>4. Digital Hash Seal (SHA-256)</h2><div class="pr-hash">' + esc(CASE.sealHash) + '</div></div>' +
+      '<div class="pr-sign"><div>Investigating Officer<br>Name / Signature / Date</div><div>Reviewing Authority<br>Name / Signature / Date</div></div>' +
+      '<div class="pr-foot">Simulated demonstration data generated by AETHER. Indicators are illustrative and not evidence of any real-world offence.</div>';
+  }
+
+  /* ---------- Button wiring ---------- */
+  document.getElementById("s3-dl-stix").addEventListener("click", async function () {
+    var bundle = buildStixBundle();
+    var json = JSON.stringify(bundle, null, 2);
+    util.download("aether_stix_bundle_AT-2026-0047.json", "application/json", json);
+    var digest = await sha256Hex(json);
+    setExportTag("STIX EXPORTED");
+    logExport("STIX 2.1 bundle downloaded: " + bundle.objects.length + " objects" + (digest ? ", file SHA-256 " + digest : ""));
+    window.AETHER.stageComplete[3] = true;
+  });
+
+  document.getElementById("s3-dl-csv").addEventListener("click", async function () {
+    var csv = buildCsv();
+    util.download("aether_attribution_matrix.csv", "text/csv;charset=utf-8", csv);
+    var digest = await sha256Hex(csv);
+    setExportTag("CSV EXPORTED");
+    logExport("Forensic CSV downloaded: " + (csv.split("\r\n").length - 2) + " entity rows" + (digest ? ", file SHA-256 " + digest : ""));
+    window.AETHER.stageComplete[3] = true;
+  });
+
+  document.getElementById("s3-print").addEventListener("click", function () {
+    buildPrintReport();
+    setExportTag("PRINT OPENED");
+    logExport("Court report rendered. Print dialog opened.");
+    window.AETHER.stageComplete[3] = true;
+    window.print();
+  });
+
+  // Expose builders for testing and for future integrations
+  window.AETHER.export = { buildStixBundle: buildStixBundle, buildCsv: buildCsv, buildPrintReport: buildPrintReport };
 })();
 </script>
 </body>
