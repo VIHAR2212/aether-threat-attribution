@@ -3,10 +3,11 @@
 **Dark Web Threat Actor De-Anonymization**
 Smart India Hackathon 2026 / Problem Statement 26151 / NTRO
 
-This project has two parts:
+This project consists of:
 
-1. **`index.html`** — a zero-dependency, single-file frontend prototype. Open it in any browser, no build step, no server. Works standalone with built-in demo data, and will call the backend API when one is reachable.
-2. **`aether-backend/`** — a FastAPI + PostgreSQL backend with a real tamper-evident chain of custody and server-side STIX 2.1 / CSV export. See `aether-backend/README.md`.
+1. **`aether-frontend/`** — Next.js 15+ (App Router) + Tailwind CSS application. Features exact 1-to-1 visual fidelity, 0px border-radius, industrial dark steel palette, 3D stacked anchor cards, interactive circadian timeline, and live FastAPI wiring with zero-crash client-side fallbacks.
+2. **`index.html`** — a zero-dependency, single-file frontend prototype.
+3. **`aether-backend/`** — FastAPI + PostgreSQL backend with a real SHA-256 tamper-evident custody chain, server-side STIX 2.1 / CSV export, stylometry cosine engine, diurnal timezone engine, and Bitcoin peel clustering. See `aether-backend/README.md`.
 
 ## Design constraints (frontend)
 
@@ -43,18 +44,27 @@ Full detail in `aether-backend/README.md`.
 
 ## Run locally
 
-**Frontend only** (no backend):
+**Next.js Frontend (recommended)**:
 
 ```bash
-# double-click index.html, or serve it:
-python -m http.server 8080
+cd aether-frontend
+npm install
+npm run dev
+# Live on http://localhost:3000
 ```
 
-**Full stack** (frontend + backend):
+**FastAPI Backend**:
+
+```bash
+cd aether-backend
+python -m uvicorn app.main:app --port 8000
+# API on http://localhost:8000, Swagger docs at http://localhost:8000/docs
+```
+
+**Full stack via Docker Compose**:
 
 ```bash
 docker compose up --build
-# API on http://localhost:8000, docs at http://localhost:8000/docs
 ./aether-backend/scripts/smoke_test.sh
 ```
 
@@ -62,11 +72,12 @@ docker compose up --build
 
 ```
 aether-threat-attribution/
-  index.html          frontend prototype (HTML, CSS, JS in one file with Stage B6 API bridge)
+  aether-frontend/     Next.js + Tailwind CSS application (port 3000)
+  aether-backend/      FastAPI backend with analysis & custody engines (port 8000)
+  index.html           Standalone single-file frontend fallback
   docker-compose.yml   PostgreSQL + API services
   docs/
     project_aether_executive_brief.md   Quick Reference Brief for SIH 2026 PS 26151
-  aether-backend/       FastAPI backend (see its own README)
   README.md
   .gitignore
 ```
