@@ -3,9 +3,12 @@
 **Dark Web Threat Actor De-Anonymization**
 Smart India Hackathon 2026 / Problem Statement 26151 / NTRO
 
-A zero-dependency, single-file forensic attribution workbench. Open `index.html` in any modern browser. No npm, no build step, no server.
+This project has two parts:
 
-## Design constraints
+1. **`index.html`** — a zero-dependency, single-file frontend prototype. Open it in any browser, no build step, no server. Works standalone with built-in demo data, and will call the backend API when one is reachable.
+2. **`aether-backend/`** — a FastAPI + PostgreSQL backend with a real tamper-evident chain of custody and server-side STIX 2.1 / CSV export. See `aether-backend/README.md`.
+
+## Design constraints (frontend)
 
 - Palette: `#000000`, `#ffffff`, `#f8fafc`, `#e2e8f0`, `#0f172a` only
 - Geometry: `border-radius: 0` everywhere, 1px solid borders
@@ -16,26 +19,52 @@ A zero-dependency, single-file forensic attribution workbench. Open `index.html`
 
 | Stage | Module | Status |
 |---|---|---|
-| 00 | Scaffold, design system, stage navigation | Complete |
-| 01 | Dark Web Recon and Origin Discovery | Complete |
-| 02 | Correlation graph, stylometry lab, diurnal engine | Complete |
-| 03 | Evidence dossier, STIX 2.1 and CSV export, court PDF | Complete |
+| 00 | Frontend scaffold, design system, stage navigation | Complete |
+| 01 | Frontend: Dark Web Recon and Origin Discovery (simulated) | Complete |
+| 02 | Frontend: correlation graph, stylometry lab, diurnal engine | Complete |
+| 03 | Frontend: evidence dossier, client-side STIX 2.1 / CSV export, court PDF | Complete |
+| B1 | Backend: FastAPI + PostgreSQL, real tamper-evident custody chain, server-side STIX 2.1 / CSV | Complete |
+| B2 | Backend: Neo4j knowledge graph | Pending |
+| B3 | Backend: Elasticsearch indexing and search | Pending |
+| B4 | Backend: stylometry model (PyTorch) | Pending |
+| B5 | Backend: Tor/SOCKS5 + Shodan/Censys recon client (authorized targets only) | Pending |
+| B6 | Frontend wired to the live backend | Pending |
+
+## Deviations from the original technology-stack slide
+
+Two components were deliberately substituted. Everything else on the slide (FastAPI, PostgreSQL, Neo4j, Elasticsearch, STIX 2.1 via the official `stix2` SDK, Tor/SOCKS5, Shodan, Censys, mmh3, JARM) is being built as specified.
+
+| Slide item | Built instead | Why |
+|---|---|---|
+| Apache Spark (BTC peel-chain clustering) | Plain Python clustering | A single root-address cluster for a demo case doesn't need a distributed compute engine. Spark adds a JVM service that can fail independently during judging, for no visible difference in the demo output. |
+| Siamese RoBERTa + Hugging Face Transformers + ONNX Runtime | A smaller PyTorch model trained on a labelled synthetic corpus | Two short forum posts are too little text for a transformer to reliably outperform n-gram cosine similarity. A full train/export/serve pipeline (HF → ONNX) is two deployment paths for a feature that already works client-side. The result is labelled as a small trained model, not presented as production-grade NLP. |
+
+Full detail in `aether-backend/README.md`.
 
 ## Run locally
 
-Double-click `index.html`, or:
+**Frontend only** (no backend):
 
 ```bash
-# optional: serve locally
+# double-click index.html, or serve it:
 python3 -m http.server 8080
-# then open http://localhost:8080
+```
+
+**Full stack** (frontend + backend):
+
+```bash
+docker compose up --build
+# API on http://localhost:8000, docs at http://localhost:8000/docs
+./aether-backend/scripts/smoke_test.sh
 ```
 
 ## Repository layout
 
 ```
 aether-threat-attribution/
-  index.html    application (HTML, CSS, JS in one file)
+  index.html          frontend prototype (HTML, CSS, JS in one file)
+  docker-compose.yml   PostgreSQL + API services
+  aether-backend/       FastAPI backend (see its own README)
   README.md
   .gitignore
 ```
