@@ -33,6 +33,18 @@ app.include_router(export.router)
 app.include_router(analysis.router)
 
 
+@app.get("/")
+def root() -> dict:
+    return {
+        "service": "AETHER Threat Attribution API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/api/health",
+        "version": "1.0.0",
+    }
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "service": "aether-api"}
+
