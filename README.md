@@ -28,7 +28,7 @@ This project has two parts:
 | B3 | Backend: Elasticsearch indexing and search | Pending |
 | B4 | Backend: stylometry model (PyTorch) | Pending |
 | B5 | Backend: Tor/SOCKS5 + Shodan/Censys recon client (authorized targets only) | Pending |
-| B6 | Frontend wired to the live backend | Pending |
+| B6 | Frontend wired to the live backend | Complete (Auto-detecting FastAPI gateway with zero-failure fallback) |
 
 ## Deviations from the original technology-stack slide
 
@@ -37,7 +37,7 @@ Two components were deliberately substituted. Everything else on the slide (Fast
 | Slide item | Built instead | Why |
 |---|---|---|
 | Apache Spark (BTC peel-chain clustering) | Plain Python clustering | A single root-address cluster for a demo case doesn't need a distributed compute engine. Spark adds a JVM service that can fail independently during judging, for no visible difference in the demo output. |
-| Siamese RoBERTa + Hugging Face Transformers + ONNX Runtime | A smaller PyTorch model trained on a labelled synthetic corpus | Two short forum posts are too little text for a transformer to reliably outperform n-gram cosine similarity. A full train/export/serve pipeline (HF → ONNX) is two deployment paths for a feature that already works client-side. The result is labelled as a small trained model, not presented as production-grade NLP. |
+| Siamese RoBERTa + Hugging Face Transformers + ONNX Runtime | A smaller PyTorch model trained on a labelled synthetic corpus | Two short forum posts are too little text for a transformer to reliably outperform n-gram cosine similarity. A full train/export/serve pipeline (HF -> ONNX) is two deployment paths for a feature that already works client-side. The result is labelled as a small trained model, not presented as production-grade NLP. |
 
 Full detail in `aether-backend/README.md`.
 
@@ -47,7 +47,7 @@ Full detail in `aether-backend/README.md`.
 
 ```bash
 # double-click index.html, or serve it:
-python3 -m http.server 8080
+python -m http.server 8080
 ```
 
 **Full stack** (frontend + backend):
@@ -62,8 +62,10 @@ docker compose up --build
 
 ```
 aether-threat-attribution/
-  index.html          frontend prototype (HTML, CSS, JS in one file)
+  index.html          frontend prototype (HTML, CSS, JS in one file with Stage B6 API bridge)
   docker-compose.yml   PostgreSQL + API services
+  docs/
+    project_aether_executive_brief.md   Quick Reference Brief for SIH 2026 PS 26151
   aether-backend/       FastAPI backend (see its own README)
   README.md
   .gitignore
