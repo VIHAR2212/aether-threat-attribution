@@ -24,9 +24,9 @@ This project has two parts:
 | 02 | Frontend: correlation graph, stylometry lab, diurnal engine | Complete |
 | 03 | Frontend: evidence dossier, client-side STIX 2.1 / CSV export, court PDF | Complete |
 | B1 | Backend: FastAPI + PostgreSQL, real tamper-evident custody chain, server-side STIX 2.1 / CSV | Complete |
-| B2 | Backend: Neo4j knowledge graph | Pending |
+| B2 | Backend: Knowledge graph (Cypher generator & BTC peel clustering) | Complete |
 | B3 | Backend: Elasticsearch indexing and search | Pending |
-| B4 | Backend: stylometry model (PyTorch) | Pending |
+| B4 | Backend: Stylometry NLP engine (Token/n-gram vectorizer & cosine similarity) | Complete |
 | B5 | Backend: Tor/SOCKS5 + Shodan/Censys recon client (authorized targets only) | Pending |
 | B6 | Frontend wired to the live backend | Complete (Auto-detecting FastAPI gateway with zero-failure fallback) |
 

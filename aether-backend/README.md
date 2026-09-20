@@ -32,6 +32,11 @@ Everything else on the slide — FastAPI, PostgreSQL, Neo4j, Elasticsearch, STIX
 | GET | `/api/cases/{evidence_id}/verify` | Recompute and verify the hash chain; returns `valid`, `broken_at_seq`, and the digital seal |
 | GET | `/api/cases/{evidence_id}/export/stix` | Download a STIX 2.1 bundle |
 | GET | `/api/cases/{evidence_id}/export/csv` | Download the forensic CSV |
+| POST | `/api/analysis/stylometry` | Comparative stylometry (n-gram cosine similarity, TTR, punctuation frequency) |
+| POST | `/api/analysis/diurnal` | Circadian 24h sleep-trough detection & operational UTC timezone inference |
+| POST | `/api/analysis/graph` | Entity relationship graph and Neo4j Cypher statement generation |
+| POST | `/api/analysis/btc-cluster` | Multi-input Bitcoin transaction clustering heuristic |
+| POST | `/api/analysis/score` | Calibrated confidence score ($C_{attr}$) calculation with contradiction deduction |
 
 Interactive API docs: `http://localhost:8000/docs` once running.
 
