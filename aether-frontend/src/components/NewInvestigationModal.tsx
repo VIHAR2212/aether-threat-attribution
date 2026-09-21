@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { InvestigationRequest, InvestigationResult, startInvestigation } from "@/lib/api";
 
 interface NewInvestigationModalProps {
@@ -97,6 +97,16 @@ export const NewInvestigationModal: React.FC<NewInvestigationModalProps> = ({
     onShowToast("Preset Loaded", `Configured investigation for ${p.name}.`);
   };
 
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   const handleStartAnalysis = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!target.trim()) {
@@ -108,7 +118,8 @@ export const NewInvestigationModal: React.FC<NewInvestigationModalProps> = ({
     setActiveModuleIndex(0);
 
     // Step-by-step progress simulation while calling backend
-    const progressInterval = setInterval(() => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    progressIntervalRef.current = setInterval(() => {
       setActiveModuleIndex((prev) => {
         if (prev < ANALYSIS_MODULES.length - 1) {
           return prev + 1;
@@ -133,10 +144,13 @@ export const NewInvestigationModal: React.FC<NewInvestigationModalProps> = ({
       const { data, isLive } = await startInvestigation(payload);
 
       // Finish progress animation
-      clearInterval(progressInterval);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       setActiveModuleIndex(ANALYSIS_MODULES.length - 1);
 
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         setIsAnalyzing(false);
         onInvestigationComplete(data);
         onShowToast(
@@ -146,7 +160,10 @@ export const NewInvestigationModal: React.FC<NewInvestigationModalProps> = ({
         onClose();
       }, 500);
     } catch (err) {
-      clearInterval(progressInterval);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       setIsAnalyzing(false);
       onShowToast("Analysis Error", "Failed to complete investigation pipeline.");
     }

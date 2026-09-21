@@ -142,10 +142,7 @@ def test_calibrated_scoring_contradiction_deduction():
 # 5. FastAPI Integration Endpoint Tests
 # =====================================================================
 
-client = TestClient(app)
-
-
-def test_api_stylometry_endpoint():
+def test_api_stylometry_endpoint(client):
     res = client.post("/api/analysis/stylometry", json={
         "text_a": "We operate high volume ransom payment gateways. Quick escrow.",
         "text_b": "We run high volume payment portals with fast escrow guarantees."
@@ -157,7 +154,7 @@ def test_api_stylometry_endpoint():
     assert data["similarity_score"] > 0.0
 
 
-def test_api_diurnal_endpoint():
+def test_api_diurnal_endpoint(client):
     res = client.post("/api/analysis/diurnal", json={
         "timestamps": [
             "2026-09-01T12:00:00Z",
@@ -175,7 +172,7 @@ def test_api_diurnal_endpoint():
     assert "estimated_timezone" in data
 
 
-def test_api_graph_endpoint():
+def test_api_graph_endpoint(client):
     res = client.post("/api/analysis/graph", json={"evidence_id": "AT-2026-0047"})
     assert res.status_code == 200
     data = res.json()
@@ -185,7 +182,7 @@ def test_api_graph_endpoint():
     assert "cypher_statements" in data
 
 
-def test_api_score_endpoint():
+def test_api_score_endpoint(client):
     res = client.post("/api/analysis/score", json={
         "deterministic_signals": {"pgp_match": 1.0, "origin_ip_match": 0.95, "btc_cluster_match": 0.85},
         "probabilistic_signals": {"stylometry_similarity": 0.87, "diurnal_consistency": 0.80},

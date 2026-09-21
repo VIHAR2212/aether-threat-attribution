@@ -523,11 +523,13 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
     // 5. Animation Loop
     let animationFrameId: number;
-    let clock = new THREE.Clock();
+    let lastTime = performance.now();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
 
       // Controls update
       controls.update();
@@ -566,12 +568,32 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
     window.addEventListener("resize", handleResize);
 
-    // Cleanup on Unmount
+    // Cleanup on Unmount (Recursive WebGL Resource Disposal)
     return () => {
       window.removeEventListener("resize", handleResize);
       container.removeEventListener("mousemove", handlePointerMove);
       container.removeEventListener("click", handlePointerDown);
       cancelAnimationFrame(animationFrameId);
+
+      // Recursively dispose all scene geometries, materials, and textures
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Sprite || obj instanceof THREE.Line) {
+          if (obj.geometry) {
+            obj.geometry.dispose();
+          }
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach((m) => {
+                if (m.map) m.map.dispose();
+                m.dispose();
+              });
+            } else {
+              if (obj.material.map) obj.material.map.dispose();
+              obj.material.dispose();
+            }
+          }
+        }
+      });
 
       controls.dispose();
       renderer.dispose();
@@ -579,7 +601,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [activeNodes, activeEdges]);
 
   // Update Controls AutoRotate state when changed
   useEffect(() => {
@@ -590,12 +612,19 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
   // Update Node highlighting & Sprite textures when selectedNode changes
   useEffect(() => {
-    NODES.forEach((node) => {
+    activeNodes.forEach((node) => {
       const sprite = labelSpritesRef.current.get(node.id);
       if (sprite) {
         const isSelected = node.id === selectedNode.id;
+        const oldMat = sprite.material;
         const newSprite = makeLabelSprite(node, isSelected);
         sprite.material = newSprite.material;
+
+        // Dispose previous material and texture to prevent GPU memory leak
+        if (oldMat) {
+          if (oldMat.map) oldMat.map.dispose();
+          oldMat.dispose();
+        }
       }
     });
 
@@ -604,12 +633,12 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
       const targetPos = new THREE.Vector3(...selectedNode.pos);
       controlsRef.current.target.lerp(targetPos, 0.4);
     }
-  }, [selectedNode]);
+  }, [selectedNode, activeNodes]);
 
   // Filter nodes visibility
   useEffect(() => {
     nodeMeshesRef.current.forEach((mesh, id) => {
-      const node = NODES.find((n) => n.id === id);
+      const node = activeNodes.find((n) => n.id === id);
       const sprite = labelSpritesRef.current.get(id);
       if (!node) return;
 
@@ -617,7 +646,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
       mesh.visible = isMatch;
       if (sprite) sprite.visible = isMatch;
     });
-  }, [filterType]);
+  }, [filterType, activeNodes]);
 
   const handleResetCamera = () => {
     if (cameraRef.current && controlsRef.current) {

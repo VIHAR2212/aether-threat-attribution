@@ -5,6 +5,35 @@
 
 export const API_BASE = "http://localhost:8000";
 
+/**
+ * SECURITY NOTE ON AUTHENTICATION CREDENTIALS:
+ * In client-side web applications, any environment variable or constant embedded in
+ * the browser bundle (such as NEXT_PUBLIC_*) is not confidential and can be inspected
+ * by anyone in browser dev tools.
+ *
+ * For Project AETHER:
+ * - In local standalone demonstration, the default investigator dev key is used automatically.
+ * - In restricted LAN / agency SOC deployments, investigators provide their session token
+ *   or API key via setInvestigatorApiKey(key), or the application is fronted by an SSO/mTLS
+ *   reverse proxy that injects authenticated identity headers.
+ */
+let runtimeApiKey: string | null = null;
+
+export function setInvestigatorApiKey(key: string): void {
+  runtimeApiKey = key.trim();
+}
+
+export function getInvestigatorApiKey(): string {
+  if (runtimeApiKey) return runtimeApiKey;
+  return process.env.NEXT_PUBLIC_AETHER_API_KEY || "aether-investigator-dev-key-2026";
+}
+
+export function getAuthHeaders(): Record<string, string> {
+  return {
+    "X-AETHER-KEY": getInvestigatorApiKey(),
+  };
+}
+
 export interface ApiStatus {
   online: boolean;
   service?: string;
@@ -191,7 +220,7 @@ export async function runStylometryAnalysis(
     const timeoutId = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(`${API_BASE}/api/analysis/stylometry`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ text_a: textA, text_b: textB }),
       signal: controller.signal,
     });
@@ -236,7 +265,7 @@ export async function runDiurnalAnalysis(
     const timeoutId = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(`${API_BASE}/api/analysis/diurnal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ timestamps: sampleTimestamps, window_size: 6 }),
       signal: controller.signal,
     });
@@ -279,7 +308,7 @@ export async function commitEvidenceAnchor(
   try {
     const res = await fetch(`${API_BASE}/api/analysis/graph`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({
         evidence_id: "AT-2026-0047",
         case_data: {
@@ -327,7 +356,9 @@ export async function downloadStixBundle(
 ): Promise<{ isLive: boolean; filename: string }> {
   const filename = `aether_stix_bundle_${evidenceId}.json`;
   try {
-    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/export/stix`);
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/export/stix`, {
+      headers: getAuthHeaders(),
+    });
     if (res.ok) {
       const blob = await res.blob();
       triggerBrowserDownload(filename, "application/json", blob);
@@ -386,7 +417,9 @@ export async function downloadForensicCsv(
 ): Promise<{ isLive: boolean; filename: string }> {
   const filename = `aether_attribution_matrix_${evidenceId}.csv`;
   try {
-    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/export/csv`);
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/export/csv`, {
+      headers: getAuthHeaders(),
+    });
     if (res.ok) {
       const text = await res.text();
       triggerBrowserDownload(filename, "text/csv;charset=utf-8", text);
@@ -431,7 +464,9 @@ export async function verifyCustodyLedger(
   evidenceId: string = "AT-2026-0047"
 ): Promise<{ data: VerifyResult; isLive: boolean }> {
   try {
-    const res = await fetch(`${API_BASE}/api/custody/verify?evidence_id=${evidenceId}`);
+    const res = await fetch(`${API_BASE}/api/custody/verify?evidence_id=${evidenceId}`, {
+      headers: getAuthHeaders(),
+    });
     if (res.ok) {
       const data: VerifyResult = await res.json();
       return { data, isLive: true };
@@ -456,7 +491,9 @@ export async function fetchCaseCustody(
   evidenceId: string = "AT-2026-0047"
 ): Promise<{ entries: CustodyEntryItem[]; isLive: boolean }> {
   try {
-    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}`);
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}`, {
+      headers: getAuthHeaders(),
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.custody && Array.isArray(data.custody)) {
@@ -514,7 +551,7 @@ export async function appendCustodyEntry(
   try {
     const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/custody`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ actor, action }),
     });
     if (res.ok) {
@@ -543,7 +580,9 @@ export async function appendCustodyEntry(
 
 export async function fetchCasesList(): Promise<{ cases: CaseListItem[]; isLive: boolean }> {
   try {
-    const res = await fetch(`${API_BASE}/api/cases`);
+    const res = await fetch(`${API_BASE}/api/cases`, {
+      headers: getAuthHeaders(),
+    });
     if (res.ok) {
       const cases: CaseListItem[] = await res.json();
       return { cases, isLive: true };
@@ -575,7 +614,9 @@ export async function fetchCaseInvestigation(
   evidenceId: string
 ): Promise<{ data: InvestigationResult; isLive: boolean }> {
   try {
-    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/investigation`);
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/investigation`, {
+      headers: getAuthHeaders(),
+    });
     if (res.ok) {
       const data: InvestigationResult = await res.json();
       return { data, isLive: true };
@@ -601,7 +642,7 @@ export async function startInvestigation(
   try {
     const res = await fetch(`${API_BASE}/api/cases/investigate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify(payload),
     });
     if (res.ok) {

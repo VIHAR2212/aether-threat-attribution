@@ -1,59 +1,143 @@
 from contextlib import asynccontextmanager
+import logging
+import uuid
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db import Base, engine, get_db
+from app.models import AuditLog
 from app.routers import analysis, cases, export
 from app.routers.cases import verify_custody_chain
-from app.schemas import VerifyResult
+from app.schemas import AuditLogOut, VerifyResult
+from app.security import (
+    ALLOWED_ORIGINS,
+    InvestigatorPrincipal,
+    PayloadLimitMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    verify_investigator_auth,
+)
+
+logger = logging.getLogger("aether.api")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    logger.info("Database schema initialized.")
     yield
 
 
 app = FastAPI(
     title="AETHER API",
-    description="Backend for Project AETHER (SIH 2026, PS 26151). All case data in "
-                "this deployment is simulated demonstration data.",
-    version="1.0.0",
+    description="Autonomous Engine for Threat Harmonization & Entity Resolution (NTRO PS-26151). "
+                "Hardened for secure evidence attribution and tamper-evident custody.",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
+# 1. Security Headers Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 2. Payload Transmission Limit Middleware (2MB)
+app.add_middleware(PayloadLimitMiddleware)
+
+# 3. Sliding-window IP Rate Limiter Middleware
+app.add_middleware(RateLimitMiddleware)
+
+# 4. Configured CORS Origins (No Wildcard)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to the deployed frontend origin in production
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["Retry-After", "X-Content-Type-Options", "Content-Disposition"],
 )
+
+
+# ---------- Safe Error Handling (No Traceback/SQL Leaks) ---------- #
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    incident_id = uuid.uuid4().hex[:12]
+    logger.error("Database error [Incident %s] on %s %s: %s", incident_id, request.method, request.url.path, str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "A database error occurred while processing forensic evidence.",
+            "incident_id": incident_id,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    incident_id = uuid.uuid4().hex[:12]
+    logger.error("Unhandled exception [Incident %s] on %s %s: %s", incident_id, request.method, request.url.path, str(exc), exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "An internal server error occurred while processing forensic request.",
+            "incident_id": incident_id,
+        },
+    )
+
+
+# ---------- Mount Routers ---------- #
 
 app.include_router(cases.router)
 app.include_router(export.router)
 app.include_router(analysis.router)
 
 
-@app.get("/")
+# ---------- Public & Utility Endpoints ---------- #
+
+@app.get("/", tags=["system"])
 def root() -> dict:
     return {
         "service": "AETHER Threat Attribution API",
         "status": "online",
+        "version": "1.1.0",
         "docs": "/docs",
         "health": "/api/health",
-        "version": "1.0.0",
+        "compliance": "Section 65B Indian Evidence Act",
     }
 
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["system"])
 def health() -> dict:
-    return {"status": "ok", "service": "aether-api"}
+    """Public health check endpoint for container orchestrators and status badges."""
+    return {"status": "ok", "service": "aether-api", "version": "1.1.0"}
 
+
+# ---------- Protected Custody & Audit Endpoints ---------- #
 
 @app.get("/api/custody/verify", response_model=VerifyResult, tags=["custody"])
-def custody_verify_alias(evidence_id: str = "AT-2026-0047", db: Session = Depends(get_db)) -> VerifyResult:
-    return verify_custody_chain(evidence_id, db)
+def custody_verify_alias(
+    evidence_id: str = "AT-2026-0047",
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> VerifyResult:
+    """Cryptographically verify SHA-256 seal of the custody chain."""
+    return verify_custody_chain(evidence_id, db=db, principal=principal)
 
 
+@app.get("/api/audit-logs", response_model=list[AuditLogOut], tags=["audit"])
+def get_audit_logs(
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> list[AuditLog]:
+    """Retrieve immutable audit events for Section 65B judicial oversight."""
+    logs = db.execute(
+        select(AuditLog).order_by(AuditLog.id.desc()).offset(offset).limit(min(limit, 500))
+    ).scalars().all()
+    return logs

@@ -3,15 +3,17 @@ services:
     image: postgres:16-alpine
     container_name: aether-postgres
     environment:
-      POSTGRES_USER: aether
-      POSTGRES_PASSWORD: aether_dev_password
-      POSTGRES_DB: aether
+      POSTGRES_USER: ${POSTGRES_USER:-aether}
+      # WARNING: Change POSTGRES_PASSWORD in .env for any non-local deployment
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-aether}
+    # Bind strictly to loopback interface on host to prevent accidental LAN exposure
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - aether_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aether"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aether}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,9 +23,13 @@ services:
       context: ./aether-backend
     container_name: aether-api
     environment:
-      DATABASE_URL: postgresql+psycopg2://aether:aether_dev_password@postgres:5432/aether
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-aether}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aether}}
+      AETHER_API_KEY: ${AETHER_API_KEY:?Set AETHER_API_KEY in .env}
+      AETHER_REQUIRE_AUTH: ${AETHER_REQUIRE_AUTH:-true}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy

@@ -124,7 +124,7 @@ def test_export_csv_is_downloadable_and_well_formed(client):
 
     r = client.get("/api/cases/AT-2026-0047/export/csv")
     assert r.status_code == 200
-    assert "aether_attribution_matrix.csv" in r.headers["content-disposition"]
+    assert "aether_attribution_matrix_AT-2026-0047.csv" in r.headers["content-disposition"]
 
     text = r.text
     assert text.startswith("\ufeff")

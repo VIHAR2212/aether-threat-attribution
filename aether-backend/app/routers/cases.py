@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Case, CustodyRow
 from app.schemas import (
+    EVIDENCE_ID_PATTERN,
     CaseCreate,
     CaseListItem,
     CaseOut,
@@ -16,21 +17,41 @@ from app.schemas import (
     InvestigationStartRequest,
     VerifyResult,
 )
+from app.security import (
+    InvestigatorPrincipal,
+    is_safe_target_url,
+    record_audit_log,
+    verify_investigator_auth,
+)
 from app.services.custody import GENESIS_HASH, CustodyChain, CustodyEntry
 from app.services.investigation import run_full_investigation
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
 
+def _validate_evidence_id_param(evidence_id: str) -> str:
+    cleaned = evidence_id.strip()
+    if not EVIDENCE_ID_PATTERN.match(cleaned):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid evidence_id format. Must be 3-32 alphanumeric characters, hyphens, or underscores.",
+        )
+    return cleaned
+
+
 def _get_case_or_404(db: Session, evidence_id: str) -> Case:
-    case = db.execute(select(Case).where(Case.evidence_id == evidence_id)).scalar_one_or_none()
+    valid_id = _validate_evidence_id_param(evidence_id)
+    case = db.execute(select(Case).where(Case.evidence_id == valid_id)).scalar_one_or_none()
     if case is None:
-        raise HTTPException(status_code=404, detail=f"No case with evidence_id '{evidence_id}'")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No case with evidence_id '{evidence_id}'")
     return case
 
 
 @router.get("", response_model=list[CaseListItem])
-def list_cases(db: Session = Depends(get_db)) -> list[CaseListItem]:
+def list_cases(
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> list[CaseListItem]:
     cases = db.execute(select(Case).order_by(Case.id.desc())).scalars().all()
     items = []
     for c in cases:
@@ -52,14 +73,45 @@ def list_cases(db: Session = Depends(get_db)) -> list[CaseListItem]:
 
 
 @router.post("/investigate", response_model=InvestigationResultOut, status_code=200)
-def start_investigation(payload: InvestigationStartRequest, db: Session = Depends(get_db)) -> InvestigationResultOut:
-    return run_full_investigation(payload, db)
+def start_investigation(
+    payload: InvestigationStartRequest,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> InvestigationResultOut:
+    # SSRF Protection: In live and auto modes, strictly reject private, loopback, or metadata addresses
+    if payload.mode != "demo":
+        is_safe, reason = is_safe_target_url(payload.target)
+        if not is_safe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Security Policy: Target rejected by SSRF guard ({reason})",
+            )
+
+    result = run_full_investigation(payload, db)
+
+    record_audit_log(
+        db=db,
+        operator=principal.operator,
+        action="START_INVESTIGATION",
+        case_id=result.case.evidence_id,  # references case
+        details={
+            "case_name": payload.case_name,
+            "target": payload.target,
+            "mode": payload.mode,
+            "confidence": result.attribution.get("confidence_score"),
+        },
+    )
+
+    return result
 
 
 @router.get("/{evidence_id}/investigation", response_model=InvestigationResultOut)
-def get_case_investigation(evidence_id: str, db: Session = Depends(get_db)) -> InvestigationResultOut:
+def get_case_investigation(
+    evidence_id: str,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> InvestigationResultOut:
     case = _get_case_or_404(db, evidence_id)
-    # If case has no evidence records yet, run investigation with default target
     req = InvestigationStartRequest(
         case_name=f"Case {case.evidence_id}",
         evidence_id=case.evidence_id,
@@ -73,26 +125,47 @@ def get_case_investigation(evidence_id: str, db: Session = Depends(get_db)) -> I
 
 
 @router.post("", response_model=CaseOut, status_code=201)
-def create_case(payload: CaseCreate, db: Session = Depends(get_db)) -> Case:
+def create_case(
+    payload: CaseCreate,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> Case:
     existing = db.execute(select(Case).where(Case.evidence_id == payload.evidence_id)).scalar_one_or_none()
     if existing is not None:
-        raise HTTPException(status_code=409, detail=f"Case '{payload.evidence_id}' already exists")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Case '{payload.evidence_id}' already exists")
 
     case = Case(**payload.model_dump())
     db.add(case)
     db.commit()
     db.refresh(case)
+
+    record_audit_log(
+        db=db,
+        operator=principal.operator,
+        action="CREATE_CASE",
+        case_id=case.id,
+        details={"evidence_id": case.evidence_id, "actor_name": case.actor_name},
+    )
+
     return case
 
 
 @router.get("/{evidence_id}", response_model=CaseOut)
-def get_case(evidence_id: str, db: Session = Depends(get_db)) -> Case:
+def get_case(
+    evidence_id: str,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> Case:
     return _get_case_or_404(db, evidence_id)
 
 
-
 @router.post("/{evidence_id}/custody", response_model=CustodyEntryOut, status_code=201)
-def add_custody_entry(evidence_id: str, payload: CustodyEntryCreate, db: Session = Depends(get_db)) -> CustodyRow:
+def add_custody_entry(
+    evidence_id: str,
+    payload: CustodyEntryCreate,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> CustodyRow:
     case = _get_case_or_404(db, evidence_id)
 
     prev_hash = case.custody[-1].entry_hash if case.custody else GENESIS_HASH
@@ -108,11 +181,24 @@ def add_custody_entry(evidence_id: str, payload: CustodyEntryCreate, db: Session
     db.add(row)
     db.commit()
     db.refresh(row)
+
+    record_audit_log(
+        db=db,
+        operator=principal.operator,
+        action="APPEND_CUSTODY_BLOCK",
+        case_id=case.id,
+        details={"seq": row.seq, "entry_hash": row.entry_hash, "actor": payload.actor},
+    )
+
     return row
 
 
 @router.get("/{evidence_id}/verify", response_model=VerifyResult)
-def verify_custody_chain(evidence_id: str, db: Session = Depends(get_db)) -> VerifyResult:
+def verify_custody_chain(
+    evidence_id: str,
+    db: Session = Depends(get_db),
+    principal: InvestigatorPrincipal = Depends(verify_investigator_auth),
+) -> VerifyResult:
     case = _get_case_or_404(db, evidence_id)
     rows = [
         {"seq": r.seq, "timestamp": r.timestamp, "actor": r.actor, "action": r.action,
@@ -121,4 +207,14 @@ def verify_custody_chain(evidence_id: str, db: Session = Depends(get_db)) -> Ver
     ]
     chain = CustodyChain.from_rows(rows)
     valid, broken_at = chain.verify()
-    return VerifyResult(valid=valid, broken_at_seq=broken_at, entry_count=len(chain.entries), seal=chain.seal())
+    seal = chain.seal()
+
+    record_audit_log(
+        db=db,
+        operator=principal.operator,
+        action="VERIFY_CUSTODY_CHAIN",
+        case_id=case.id,
+        details={"valid": valid, "entry_count": len(chain.entries), "seal": seal},
+    )
+
+    return VerifyResult(valid=valid, broken_at_seq=broken_at, entry_count=len(chain.entries), seal=seal)

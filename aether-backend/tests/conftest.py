@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db
 from app.main import app
+from app.security import AETHER_API_KEY, RateLimitMiddleware
 
 
 @pytest.fixture()
@@ -25,7 +26,10 @@ def client():
         finally:
             db.close()
 
+    RateLimitMiddleware.reset_limits()
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-AETHER-KEY": AETHER_API_KEY}) as c:
         yield c
     app.dependency_overrides.clear()
+    RateLimitMiddleware.reset_limits()
+

@@ -48,6 +48,7 @@ export default function Home() {
     let mounted = true;
 
     async function pollHealth() {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       const status = await checkBackendHealth();
       if (mounted) {
         setApiOnline(status.online);
