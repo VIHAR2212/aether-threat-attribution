@@ -21,6 +21,13 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
   const [operationalOffset, setOperationalOffset] = useState("UTC +05:30");
   const [activeFilter, setActiveFilter] = useState<"monthly" | "circadian">("circadian");
   const [evaluatingStylo, setEvaluatingStylo] = useState(false);
+  const [hoveredHour, setHoveredHour] = useState<number | null>(null);
+  const [diurnalHourly, setDiurnalHourly] = useState<number[]>([
+    5, 6, 8, 12, 16, 18, 19, 17, 15, 14, 13, 16, 18, 17, 12, 6, 2, 0, 0, 0, 0, 1, 3, 4,
+  ]);
+  const [monthlyHourly] = useState<number[]>([
+    12, 15, 14, 8, 4, 16, 22, 19, 14, 9, 5, 18, 25, 21, 15, 8, 6, 14, 20, 17, 11, 7, 5, 19, 28, 24, 16, 9, 8, 22,
+  ]);
 
   // Run live Stylometry Evaluation
   const handleStylometryEval = async () => {
@@ -51,14 +58,52 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
       const { data, isLive } = await runDiurnalAnalysis();
       const offset = data.estimated_timezone.formatted_offset;
       setOperationalOffset(offset);
+      if (data.histogram && data.histogram.length === 24) {
+        setDiurnalHourly(data.histogram);
+      }
       onShowToast(
         isLive ? "FastAPI Diurnal Engine" : "Circadian Model Active",
-        `Sleep trough detected (22:00-04:00 UTC). Inferred offset: ${offset} (${data.estimated_timezone.candidate_regions[0]}).`
+        `Sleep trough detected (${data.sleep_trough.start_utc}:00-${data.sleep_trough.end_utc}:00 UTC). Inferred offset: ${offset} (${data.estimated_timezone.candidate_regions[0]}).`
       );
     } catch {
       onShowToast("Diurnal Model", "UTC diurnal sleep curve active (03:00 - 09:00 sleep trough).");
     }
   };
+
+  // Calculate smooth Catmull-Rom spline curve points for telemetry chart
+  const currentDataset = activeFilter === "circadian" ? diurnalHourly : monthlyHourly;
+  const svgWidth = 640;
+  const padL = 28;
+  const padR = 16;
+  const chartW = svgWidth - padL - padR;
+  const maxVal = Math.max(...currentDataset, 1);
+
+  const points = currentDataset.map((val, i) => {
+    const x = padL + (i / (currentDataset.length - 1)) * chartW;
+    const y = 122 - (val / (maxVal * 1.28)) * 92;
+    return { x, y, val, index: i };
+  });
+
+  let linePath = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = i > 0 ? points[i - 1] : points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = i < points.length - 2 ? points[i + 2] : p2;
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    linePath += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+
+  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} 125 L ${points[0].x.toFixed(1)} 125 Z`;
+
+  const peakPoint = points.reduce((prev, curr) => (curr.val > prev.val ? curr : prev), points[0]);
+  const minPoint = points.reduce((prev, curr) => (curr.val < prev.val ? curr : prev), points[0]);
+
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -150,7 +195,7 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
       </div>
 
       {/* MIDDLE ROW 1: Wide Temporal & Diurnal Timeline Chart */}
-      <div className="matte-card p-6 lg:col-span-2 flex flex-col justify-between">
+      <div id="diurnal-section" className="matte-card p-6 lg:col-span-2 flex flex-col justify-between scroll-mt-24 transition">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-white">
@@ -227,64 +272,243 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
           </button>
         </div>
 
-        {/* Diurnal Sleep Curve SVG */}
-        <div className="relative h-36 w-full mt-2">
-          <svg className="w-full h-full" viewBox="0 0 600 140" preserveAspectRatio="none">
-            {/* Dark Graph Base Fill */}
-            <path
-              d="M 0,90 Q 60,115 120,105 T 240,30 T 360,95 T 480,25 T 600,60 L 600,140 L 0,140 Z"
-              fill="#0e141d"
-            />
-            {/* Solid Graph Line */}
-            <path
-              d="M 0,90 Q 60,115 120,105 T 240,30 T 360,95 T 480,25 T 600,60"
-              fill="none"
-              stroke="#475569"
-              strokeWidth="2"
-              strokeLinecap="square"
-            />
+        {/* Diurnal Sleep Curve & Histogram Telemetry (Smooth Spline & Shaded Zones) */}
+        <div className="relative w-full mt-2 bg-[#06080d] border border-[#1a2230] p-3 flex flex-col justify-between">
+          {/* Chart Header & Interactive Hover Badge */}
+          <div className="flex justify-between items-center text-[10px] font-mono mb-1 text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-[#38bdf8] inline-block animate-pulse"></span>
+              {activeFilter === "circadian"
+                ? "UTC 24h Posting Distribution // 212 Captured Events"
+                : "Aggregated 30-Day Activity Clustering"}
+            </span>
 
-            {/* Red Marker for Sleep Window */}
-            <rect x="76" y="106" width="8" height="8" fill="#dc2626" stroke="#000000" strokeWidth="1.5" />
-            <text
-              x="60"
-              y="130"
-              fontSize="10"
-              fontFamily="'JetBrains Mono', monospace"
-              fontWeight="700"
-              fill="#f87171"
+            {hoveredHour !== null ? (
+              <span className="text-cyan-300 font-bold bg-[#0d1624] px-2 py-0.5 border border-[#203652]">
+                {activeFilter === "circadian"
+                  ? `[${String(hoveredHour).padStart(2, "0")}:00 UTC] ${
+                      diurnalHourly[hoveredHour]
+                    } posts &bull; Local: ${String(
+                      (hoveredHour + 5) % 24
+                    ).padStart(2, "0")}:30 IST`
+                  : `Day ${hoveredHour + 1}: ${monthlyHourly[hoveredHour]} events`}
+              </span>
+            ) : (
+              <span className="text-slate-500">
+                Hover point for telemetry inspection
+              </span>
+            )}
+          </div>
+
+          {/* Precision SVG Chart Canvas */}
+          <div className="relative h-40 w-full overflow-hidden">
+            <svg
+              className="w-full h-full"
+              viewBox="0 0 640 145"
+              preserveAspectRatio="none"
+              onMouseLeave={() => setHoveredHour(null)}
             >
-              Sleep Window
-            </text>
+              <defs>
+                <linearGradient id="diurnalAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.28" />
+                  <stop offset="65%" stopColor="#0284c7" stopOpacity="0.08" />
+                  <stop offset="100%" stopColor="#06080d" stopOpacity="0" />
+                </linearGradient>
+                <linearGradient id="peakAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity="0.32" />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+                </linearGradient>
+                <linearGradient id="sleepAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
 
-            {/* Green Marker & Peak Line */}
-            <path
-              d="M 420,35 Q 450,25 480,25 T 510,35"
-              fill="none"
-              stroke="#22c55e"
-              strokeWidth="3"
-              strokeLinecap="square"
-            />
-            <rect x="476" y="21" width="8" height="8" fill="#22c55e" stroke="#000000" strokeWidth="1.5" />
-            <text
-              x="430"
-              y="15"
-              fontSize="10"
-              fontFamily="'JetBrains Mono', monospace"
-              fontWeight="700"
-              fill="#22c55e"
-            >
-              Peak Activity
-            </text>
-          </svg>
-        </div>
+              {/* Horizontal Reference Lines */}
+              <line x1="28" y1="30" x2="624" y2="30" stroke="#141c29" strokeDasharray="3 3" strokeWidth="1" />
+              <line x1="28" y1="75" x2="624" y2="75" stroke="#141c29" strokeDasharray="3 3" strokeWidth="1" />
+              <line x1="28" y1="125" x2="624" y2="125" stroke="#1e2736" strokeWidth="1" />
 
-        <div className="flex justify-between text-[11px] font-mono text-slate-500 mt-2 px-1">
-          <span>00:00 UTC</span>
-          <span>06:00 UTC</span>
-          <span>12:00 UTC</span>
-          <span>18:00 UTC</span>
-          <span>23:59 UTC</span>
+              {/* Y-axis Metric Ticks */}
+              <text x="10" y="34" fill="#475569" fontSize="8" fontFamily="'JetBrains Mono', monospace">18</text>
+              <text x="10" y="79" fill="#475569" fontSize="8" fontFamily="'JetBrains Mono', monospace">10</text>
+              <text x="10" y="127" fill="#475569" fontSize="8" fontFamily="'JetBrains Mono', monospace">0</text>
+
+              {activeFilter === "circadian" && (
+                <>
+                  {/* Shaded Peak Activity Window (05:00 - 14:00 UTC) */}
+                  <rect
+                    x={points[5].x - 10}
+                    y="16"
+                    width={points[13].x - points[5].x + 20}
+                    height="109"
+                    fill="url(#peakAreaGrad)"
+                    stroke="#22c55e"
+                    strokeWidth="1"
+                    strokeDasharray="4 3"
+                    opacity="0.65"
+                  />
+                  <text
+                    x={(points[5].x + points[13].x) / 2}
+                    y="27"
+                    fill="#4ade80"
+                    fontSize="8.5"
+                    fontFamily="'JetBrains Mono', monospace"
+                    fontWeight="700"
+                    textAnchor="middle"
+                    letterSpacing="0.08em"
+                  >
+                    [PEAK POSTING WINDOW // 06:00 - 14:00 UTC]
+                  </text>
+
+                  {/* Shaded Sleep Trough Window (17:00 - 23:59 UTC) */}
+                  <rect
+                    x={points[17].x - 10}
+                    y="16"
+                    width={points[23].x - points[17].x + 20}
+                    height="109"
+                    fill="url(#sleepAreaGrad)"
+                    stroke="#ef4444"
+                    strokeWidth="1"
+                    strokeDasharray="4 3"
+                    opacity="0.65"
+                  />
+                  <text
+                    x={(points[17].x + points[23].x) / 2}
+                    y="27"
+                    fill="#f87171"
+                    fontSize="8.5"
+                    fontFamily="'JetBrains Mono', monospace"
+                    fontWeight="700"
+                    textAnchor="middle"
+                    letterSpacing="0.08em"
+                  >
+                    [NOCTURNAL SLEEP TROUGH // 18:00 - 00:00 UTC]
+                  </text>
+                </>
+              )}
+
+              {/* Vertical Telemetry Bar Columns */}
+              {points.map((p, idx) => {
+                const isHovered = hoveredHour === idx;
+                const isSleep = activeFilter === "circadian" && idx >= 17;
+                const isPeak = activeFilter === "circadian" && idx >= 5 && idx <= 13;
+                const barColor = isPeak ? "#22c55e" : isSleep ? "#ef4444" : "#38bdf8";
+
+                return (
+                  <g
+                    key={idx}
+                    className="cursor-pointer transition-opacity"
+                    onMouseEnter={() => setHoveredHour(idx)}
+                  >
+                    {/* Background hover guide line */}
+                    {isHovered && (
+                      <line
+                        x1={p.x}
+                        y1="16"
+                        x2={p.x}
+                        y2="125"
+                        stroke="#64748b"
+                        strokeDasharray="2 2"
+                        strokeWidth="1"
+                      />
+                    )}
+
+                    {/* Telemetry vertical bar */}
+                    <rect
+                      x={p.x - 3.5}
+                      y={p.y}
+                      width={7}
+                      height={Math.max(125 - p.y, 2)}
+                      fill={isHovered ? "#ffffff" : barColor}
+                      opacity={isHovered ? 0.95 : isSleep ? 0.35 : 0.45}
+                    />
+
+                    {/* Bar top cap */}
+                    <rect
+                      x={p.x - 3.5}
+                      y={p.y}
+                      width={7}
+                      height={2}
+                      fill={isHovered ? "#ffffff" : barColor}
+                      opacity={isHovered ? 1 : 0.9}
+                    />
+                  </g>
+                );
+              })}
+
+              {/* Smooth Spline Area Fill */}
+              <path d={areaPath} fill="url(#diurnalAreaGrad)" />
+
+              {/* Smooth Luminous Spline Wave */}
+              <path
+                d={linePath}
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* Peak Activity Callout Beacon */}
+              <g>
+                <circle cx={peakPoint.x} cy={peakPoint.y} r="4.5" fill="#22c55e" stroke="#06080d" strokeWidth="2" />
+                <circle cx={peakPoint.x} cy={peakPoint.y} r="8" fill="none" stroke="#22c55e" strokeWidth="1" opacity="0.6" />
+                <text
+                  x={peakPoint.x}
+                  y={peakPoint.y - 10}
+                  fill="#4ade80"
+                  fontSize="9"
+                  fontFamily="'JetBrains Mono', monospace"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  Peak ({peakPoint.val} posts)
+                </text>
+              </g>
+
+              {/* Sleep Trough Callout Beacon */}
+              <g>
+                <rect x={minPoint.x - 3.5} y={minPoint.y - 3.5} width="7" height="7" fill="#ef4444" stroke="#06080d" strokeWidth="1.5" />
+                <text
+                  x={minPoint.x}
+                  y={minPoint.y - 8}
+                  fill="#f87171"
+                  fontSize="8.5"
+                  fontFamily="'JetBrains Mono', monospace"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  Zero Activity
+                </text>
+              </g>
+            </svg>
+          </div>
+
+          {/* Monospace X-Axis UTC Timeline Legend */}
+          <div className="flex justify-between text-[10px] font-mono text-slate-400 pt-2 px-6 border-t border-[#141d29]">
+            {activeFilter === "circadian" ? (
+              <>
+                <span>00:00 UTC</span>
+                <span>04:00 UTC</span>
+                <span>08:00 UTC</span>
+                <span>12:00 UTC</span>
+                <span>16:00 UTC</span>
+                <span>20:00 UTC</span>
+                <span>23:59 UTC</span>
+              </>
+            ) : (
+              <>
+                <span>Day 01</span>
+                <span>Day 05</span>
+                <span>Day 10</span>
+                <span>Day 15</span>
+                <span>Day 20</span>
+                <span>Day 25</span>
+                <span>Day 30</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

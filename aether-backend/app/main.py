@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
-from app.db import Base, engine
+from app.db import Base, engine, get_db
 from app.routers import analysis, cases, export
+from app.routers.cases import verify_custody_chain
+from app.schemas import VerifyResult
 
 
 @asynccontextmanager
@@ -47,4 +50,10 @@ def root() -> dict:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "service": "aether-api"}
+
+
+@app.get("/api/custody/verify", response_model=VerifyResult, tags=["custody"])
+def custody_verify_alias(evidence_id: str = "AT-2026-0047", db: Session = Depends(get_db)) -> VerifyResult:
+    return verify_custody_chain(evidence_id, db)
+
 

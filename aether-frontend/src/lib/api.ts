@@ -294,3 +294,134 @@ export async function downloadForensicCsv(
   triggerBrowserDownload(filename, "text/csv;charset=utf-8", fallbackCsv);
   return { isLive: false, filename };
 }
+
+// ---------- Custody Chain & Tamper-Evident Ledger ---------- //
+
+export interface VerifyResult {
+  valid: boolean;
+  broken_at_seq: number | null;
+  entry_count: number;
+  seal: string;
+}
+
+export interface CustodyEntryItem {
+  seq: number;
+  timestamp: string;
+  actor: string;
+  action: string;
+  prev_hash: string;
+  entry_hash: string;
+}
+
+export async function verifyCustodyLedger(
+  evidenceId: string = "AT-2026-0047"
+): Promise<{ data: VerifyResult; isLive: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/custody/verify?evidence_id=${evidenceId}`);
+    if (res.ok) {
+      const data: VerifyResult = await res.json();
+      return { data, isLive: true };
+    }
+  } catch (err) {
+    console.warn("Custody verify API unavailable, using local buffer:", err);
+  }
+
+  // Client fallback
+  return {
+    data: {
+      valid: true,
+      broken_at_seq: null,
+      entry_count: 7,
+      seal: "9f83a4b2c1e0d3f4a5b6c7d8e9f0123456789abcdef0123456789abcdef01234",
+    },
+    isLive: false,
+  };
+}
+
+export async function fetchCaseCustody(
+  evidenceId: string = "AT-2026-0047"
+): Promise<{ entries: CustodyEntryItem[]; isLive: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.custody && Array.isArray(data.custody)) {
+        return { entries: data.custody, isLive: true };
+      }
+    }
+  } catch (err) {
+    console.warn("Fetch case custody API error:", err);
+  }
+
+  return {
+    entries: [
+      {
+        seq: 1,
+        timestamp: "2026-09-14T08:12:00Z",
+        actor: "Investigator Lead (CERT-In)",
+        action: "Evidence acquisition initiated for dread.onion operator.",
+        prev_hash: "0000000000000000000000000000000000000000000000000000000000000000",
+        entry_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      },
+      {
+        seq: 2,
+        timestamp: "2026-09-14T08:15:22Z",
+        actor: "AETHER Autonomous Recon",
+        action: "SOCKS5 crawl matched Favicon MurmurHash3 -129482710 to IPv4 185.220.101.42.",
+        prev_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        entry_hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+      },
+      {
+        seq: 3,
+        timestamp: "2026-09-14T08:21:05Z",
+        actor: "Stylometry Cosine Engine",
+        action: "Cosine similarity 0.934 computed between ZeroTrace and ShadowByte postings.",
+        prev_hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+        entry_hash: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      },
+      {
+        seq: 4,
+        timestamp: "2026-09-14T08:30:11Z",
+        actor: "Diurnal Temporal Engine",
+        action: "UTC sleep trough detected (22:00-04:00), operational timezone inferred as UTC+05:30.",
+        prev_hash: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        entry_hash: "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+      },
+    ],
+    isLive: false,
+  };
+}
+
+export async function appendCustodyEntry(
+  evidenceId: string = "AT-2026-0047",
+  actor: string,
+  action: string
+): Promise<{ success: boolean; entry?: CustodyEntryItem; isLive: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/custody`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actor, action }),
+    });
+    if (res.ok) {
+      const entry: CustodyEntryItem = await res.json();
+      return { success: true, entry, isLive: true };
+    }
+  } catch (err) {
+    console.warn("Append custody API error:", err);
+  }
+
+  return {
+    success: true,
+    entry: {
+      seq: Date.now() % 1000,
+      timestamp: new Date().toISOString(),
+      actor,
+      action,
+      prev_hash: "client_prev_hash",
+      entry_hash: "client_entry_hash",
+    },
+    isLive: false,
+  };
+}
+
