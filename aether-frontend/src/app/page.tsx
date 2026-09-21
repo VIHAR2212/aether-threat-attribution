@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { checkBackendHealth, verifyCustodyLedger } from "@/lib/api";
+import {
+  checkBackendHealth,
+  fetchCaseInvestigation,
+  fetchCasesList,
+  verifyCustodyLedger,
+  CaseListItem,
+  InvestigationResult,
+} from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { BentoGrid } from "@/components/BentoGrid";
@@ -11,12 +18,18 @@ import { StylometryLabModal } from "@/components/StylometryLabModal";
 import { DossierModal } from "@/components/DossierModal";
 import { EvidenceModal } from "@/components/EvidenceModal";
 import { EngineConfigModal } from "@/components/EngineConfigModal";
+import { NewInvestigationModal } from "@/components/NewInvestigationModal";
 import { Toast, ToastData } from "@/components/Toast";
 
 export default function Home() {
   const [apiOnline, setApiOnline] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [activeView, setActiveView] = useState<"overview" | "graph" | "custody">("overview");
+
+  // Multi-case investigation state
+  const [currentInvestigation, setCurrentInvestigation] = useState<InvestigationResult | null>(null);
+  const [casesList, setCasesList] = useState<CaseListItem[]>([]);
+  const [newInvestigationOpen, setNewInvestigationOpen] = useState<boolean>(false);
 
   // Modals state
   const [dossierOpen, setDossierOpen] = useState<boolean>(false);
@@ -30,7 +43,7 @@ export default function Home() {
     visible: false,
   });
 
-  // Check FastAPI backend connection on mount & periodic polling
+  // Check FastAPI backend connection on mount & periodic polling + load cases
   useEffect(() => {
     let mounted = true;
 
@@ -41,7 +54,19 @@ export default function Home() {
       }
     }
 
+    async function loadInitialCases() {
+      const { cases } = await fetchCasesList();
+      if (mounted && cases.length > 0) {
+        setCasesList(cases);
+      }
+      const { data: initialCase } = await fetchCaseInvestigation("AT-2026-0047");
+      if (mounted && initialCase) {
+        setCurrentInvestigation(initialCase);
+      }
+    }
+
     pollHealth();
+    loadInitialCases();
     const interval = setInterval(pollHealth, 15000);
 
     return () => {
@@ -49,6 +74,22 @@ export default function Home() {
       clearInterval(interval);
     };
   }, []);
+
+  const handleSelectCase = async (evidenceId: string) => {
+    showToast("Loading Investigation", `Retrieving forensic artifacts for ${evidenceId}...`);
+    try {
+      const { data: inv } = await fetchCaseInvestigation(evidenceId);
+      if (inv) {
+        setCurrentInvestigation(inv);
+        showToast(
+          "Investigation Active",
+          `${inv.case?.evidence_id || evidenceId}: ${inv.case?.actor_name || "Target Loaded"} (${inv.attribution?.confidence_score ?? 94.8}%)`
+        );
+      }
+    } catch {
+      showToast("Case Switch Notice", `Retrieved local cached dossier for ${evidenceId}.`);
+    }
+  };
 
   const showToast = (title: string, message: string) => {
     setToast({ title, message, visible: true });
@@ -115,12 +156,13 @@ export default function Home() {
   // 6. Icon 8: Call GET /api/custody/verify and show SHA-256 validity toast
   const handleVerifyShield = async () => {
     setActiveTab("shield");
+    const targetId = currentInvestigation?.case?.evidence_id || "AT-2026-0047";
     try {
-      const { data, isLive } = await verifyCustodyLedger("AT-2026-0047");
+      const { data, isLive } = await verifyCustodyLedger(targetId);
       if (data.valid) {
         showToast(
           isLive ? "Custody Seal Valid (SHA-256)" : "Cryptographic Chain Intact",
-          `Tamper-evident chain verified. ${data.entry_count} custody blocks intact. Seal: ${data.seal.substring(
+          `Tamper-evident chain verified for ${targetId}. ${data.entry_count} custody blocks intact. Seal: ${data.seal.substring(
             0,
             16
           )}...`
@@ -158,6 +200,12 @@ export default function Home() {
         {/* TOP HEADER */}
         <Header
           apiOnline={apiOnline}
+          activeEvidenceId={currentInvestigation?.case?.evidence_id || "AT-2026-0047"}
+          activeActorName={currentInvestigation?.case?.actor_name || "UNC-3844"}
+          activeConfidence={currentInvestigation?.attribution?.confidence_score ?? 94.8}
+          casesList={casesList}
+          onSelectCase={handleSelectCase}
+          onOpenNewInvestigation={() => setNewInvestigationOpen(true)}
           onSearch={handleSearch}
           onShowToast={showToast}
         />
@@ -165,6 +213,8 @@ export default function Home() {
         {/* ACTIVE MAIN VIEW */}
         {activeView === "overview" && (
           <BentoGrid
+            investigation={currentInvestigation}
+            onOpenNewInvestigation={() => setNewInvestigationOpen(true)}
             onOpenDossier={handleOpenDossier}
             onOpenEvidence={() => setEvidenceOpen(true)}
             onShowToast={showToast}
@@ -173,17 +223,33 @@ export default function Home() {
 
         {activeView === "graph" && (
           <KnowledgeGraphView
+            investigation={currentInvestigation}
             onShowToast={showToast}
             onOpenEvidence={() => setEvidenceOpen(true)}
           />
         )}
 
         {activeView === "custody" && (
-          <CustodyLedgerView onShowToast={showToast} />
+          <CustodyLedgerView
+            evidenceId={currentInvestigation?.case?.evidence_id || "AT-2026-0047"}
+            onShowToast={showToast}
+          />
         )}
       </main>
 
       {/* Interactive Modals & Notification Toast */}
+      <NewInvestigationModal
+        isOpen={newInvestigationOpen}
+        onClose={() => setNewInvestigationOpen(false)}
+        onInvestigationComplete={(newResult) => {
+          setCurrentInvestigation(newResult);
+          fetchCasesList().then((res) => {
+            if (res.cases.length > 0) setCasesList(res.cases);
+          });
+        }}
+        onShowToast={showToast}
+      />
+
       <StylometryLabModal
         isOpen={stylometryOpen}
         onClose={() => {
@@ -195,6 +261,8 @@ export default function Home() {
 
       <DossierModal
         isOpen={dossierOpen}
+        investigation={currentInvestigation}
+        evidenceId={currentInvestigation?.case?.evidence_id || "AT-2026-0047"}
         onClose={() => {
           setDossierOpen(false);
           setActiveTab(activeView);

@@ -12,10 +12,14 @@ import {
 } from "@/lib/api";
 
 interface CustodyLedgerViewProps {
+  evidenceId?: string;
   onShowToast: (title: string, message: string) => void;
 }
 
-export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({ onShowToast }) => {
+export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({
+  evidenceId = "AT-2026-0047",
+  onShowToast,
+}) => {
   const [entries, setEntries] = useState<CustodyEntryItem[]>([]);
   const [verification, setVerification] = useState<VerifyResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -26,30 +30,30 @@ export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({ onShowToas
   const [actorName, setActorName] = useState<string>("CERT-In Digital Forensics");
   const [actionDesc, setActionDesc] = useState<string>("");
 
-  const loadData = async () => {
+  const loadData = async (targetId: string) => {
     setLoading(true);
     try {
       const [{ entries: list }, { data: verifyData }] = await Promise.all([
-        fetchCaseCustody("AT-2026-0047"),
-        verifyCustodyLedger("AT-2026-0047"),
+        fetchCaseCustody(targetId),
+        verifyCustodyLedger(targetId),
       ]);
       setEntries(list);
       setVerification(verifyData);
     } catch {
-      onShowToast("Ledger Notice", "Loaded local cryptographic custody buffer.");
+      onShowToast("Ledger Notice", `Loaded local cryptographic custody buffer for ${targetId}.`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData(evidenceId);
+  }, [evidenceId]);
 
   const handleVerify = async () => {
     setVerifying(true);
     try {
-      const { data, isLive } = await verifyCustodyLedger("AT-2026-0047");
+      const { data, isLive } = await verifyCustodyLedger(evidenceId);
       setVerification(data);
       if (data.valid) {
         onShowToast(
@@ -82,7 +86,7 @@ export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({ onShowToas
     setSubmitting(true);
     try {
       const { entry, isLive } = await appendCustodyEntry(
-        "AT-2026-0047",
+        evidenceId,
         actorName.trim(),
         actionDesc.trim()
       );
@@ -169,7 +173,7 @@ export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({ onShowToas
       <div className="matte-card p-5">
         <div className="flex justify-between items-center pb-3 border-b border-[#1e2533]">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-            Sequential Cryptographic Log (AT-2026-0047)
+            Sequential Cryptographic Log ({evidenceId})
           </h3>
           <span className="text-xs text-slate-400 font-mono">
             Total Blocks: {entries.length}
@@ -261,7 +265,7 @@ export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({ onShowToas
                 <input
                   type="text"
                   disabled
-                  value="AT-2026-0047 (Project AETHER)"
+                  value={`${evidenceId} (Project AETHER)`}
                   className="w-full bg-[#121620] border border-[#1e2533] p-2.5 text-slate-400 outline-none cursor-not-allowed"
                 />
               </div>
@@ -312,14 +316,14 @@ export const CustodyLedgerView: React.FC<CustodyLedgerViewProps> = ({ onShowToas
 
             <div className="mt-4 space-y-2.5">
               <button
-                onClick={() => downloadStixBundle("AT-2026-0047")}
+                onClick={() => downloadStixBundle(evidenceId)}
                 className="w-full py-2.5 bg-[#141a24] hover:bg-[#1a2332] text-slate-200 border border-[#253245] text-xs font-mono font-semibold transition flex items-center justify-center gap-2"
               >
                 <i className="fa-solid fa-file-code text-xs"></i> Download STIX 2.1 JSON
               </button>
 
               <button
-                onClick={() => downloadForensicCsv("AT-2026-0047")}
+                onClick={() => downloadForensicCsv(evidenceId)}
                 className="w-full py-2.5 bg-[#141a24] hover:bg-[#1a2332] text-slate-200 border border-[#253245] text-xs font-mono font-semibold transition flex items-center justify-center gap-2"
               >
                 <i className="fa-solid fa-file-csv text-xs"></i> Download Forensic CSV

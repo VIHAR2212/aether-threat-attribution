@@ -147,7 +147,10 @@ const EDGES: EdgeData[] = [
   { from: "onion-1", to: "hash-1", label: "SERVES_ICON", proof: "Binary MD5 Hash", isDeterministic: true, color: 0x38bdf8 },
 ];
 
+import { InvestigationResult } from "@/lib/api";
+
 interface KnowledgeGraphViewProps {
+  investigation?: InvestigationResult | null;
   onShowToast: (title: string, message: string) => void;
   onOpenEvidence: () => void;
 }
@@ -213,14 +216,98 @@ function makeLabelSprite(node: NodeData, isSelected: boolean): THREE.Sprite {
 }
 
 export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
+  investigation,
   onShowToast,
   onOpenEvidence,
 }) => {
+  const activeNodes: NodeData[] = React.useMemo(() => {
+    if (!investigation?.graph?.nodes || investigation.graph.nodes.length === 0) {
+      return NODES;
+    }
+    const rawNodes = investigation.graph.nodes;
+    const count = rawNodes.length;
+
+    const typeMap: Record<string, NodeData["type"]> = {
+      "threat-actor": "threat-actor",
+      "ThreatActor": "threat-actor",
+      "Alias": "threat-actor",
+      "ipv4": "ipv4",
+      "IPv4Address": "ipv4",
+      "pgp": "pgp",
+      "PGPFingerprint": "pgp",
+      "wallet": "wallet",
+      "CryptoWallet": "wallet",
+      "darknet": "darknet",
+      "hash": "hash",
+      "domain": "darknet",
+    };
+
+    const colorMap: Record<string, string> = {
+      "threat-actor": "#f87171",
+      "ipv4": "#38bdf8",
+      "pgp": "#4ade80",
+      "wallet": "#fbbf24",
+      "darknet": "#c084fc",
+      "hash": "#22d3ee",
+    };
+
+    return rawNodes.map((n, idx) => {
+      const isCentral = idx === 0 || n.type === "threat-actor" || n.type === "ThreatActor";
+      const angle = (idx / Math.max(count - 1, 1)) * Math.PI * 2;
+      const dist = isCentral ? 0 : 45 + (idx % 3) * 12;
+      const posX = isCentral ? 0 : Math.cos(angle) * dist;
+      const posY = isCentral ? 0 : Math.sin(angle) * (dist * 0.6) + (idx % 2 === 0 ? 15 : -15);
+      const posZ = isCentral ? 0 : idx % 2 === 0 ? 25 : -25;
+
+      const mappedType = typeMap[n.type] || "darknet";
+      const nodeColor = (n.metadata && n.metadata.color) || colorMap[mappedType] || "#38bdf8";
+      const hexColor = parseInt(nodeColor.replace("#", ""), 16) || 0x38bdf8;
+
+      return {
+        id: n.id,
+        label: n.label,
+        type: mappedType,
+        subtext: (n.metadata && n.metadata.subtext) || `${mappedType.toUpperCase()} Node`,
+        confidence: (n.metadata && n.metadata.confidence) || "95.0%",
+        color: nodeColor,
+        hexColor,
+        details: {
+          "Entity Category": n.type,
+          "Identifier": n.id,
+          "Label / Value": n.label,
+          "Case Reference": investigation?.case?.evidence_id || "AT-2026-0047",
+        },
+        pos: [posX, posY, posZ] as [number, number, number],
+      };
+    });
+  }, [investigation]);
+
+  const activeEdges: EdgeData[] = React.useMemo(() => {
+    if (!investigation?.graph?.edges || investigation.graph.edges.length === 0) {
+      return EDGES;
+    }
+    return investigation.graph.edges.map((e) => ({
+      from: e.source,
+      to: e.target,
+      label: e.relationship,
+      proof: e.deterministic ? "Deterministic Cryptographic Link" : "Probabilistic NLP/Circadian Lead",
+      isDeterministic: e.deterministic,
+      color: e.deterministic ? 0x38bdf8 : 0xfb7185,
+    }));
+  }, [investigation]);
+
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const [selectedNode, setSelectedNode] = useState<NodeData>(NODES[0]);
+  const [selectedNode, setSelectedNode] = useState<NodeData>(activeNodes[0]);
   const [filterType, setFilterType] = useState<string>("all");
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
   const [hoveredNode, setHoveredNode] = useState<NodeData | null>(null);
+
+  useEffect(() => {
+    if (activeNodes.length > 0) {
+      setSelectedNode(activeNodes[0]);
+    }
+  }, [activeNodes]);
+
 
   // References for Three.js objects
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -279,8 +366,8 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     const nodeMeshes = new Map<string, THREE.Mesh>();
     const labelSprites = new Map<string, THREE.Sprite>();
 
-    NODES.forEach((node) => {
-      const isCentral = node.id === "actor-1";
+    activeNodes.forEach((node, idx) => {
+      const isCentral = idx === 0 || node.type === "threat-actor";
       const radius = isCentral ? 5.5 : 3.8;
 
       // Node Geometry (Spherical or Faceted)
@@ -331,10 +418,11 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     const edgeLinesGroup = new THREE.Group();
     const pulses: { mesh: THREE.Mesh; p1: THREE.Vector3; p2: THREE.Vector3; progress: number; speed: number }[] = [];
 
-    EDGES.forEach((edge) => {
-      const fromNode = NODES.find((n) => n.id === edge.from);
-      const toNode = NODES.find((n) => n.id === edge.to);
+    activeEdges.forEach((edge) => {
+      const fromNode = activeNodes.find((n) => n.id === edge.from);
+      const toNode = activeNodes.find((n) => n.id === edge.to);
       if (!fromNode || !toNode) return;
+
 
       const p1 = new THREE.Vector3(...fromNode.pos);
       const p2 = new THREE.Vector3(...toNode.pos);

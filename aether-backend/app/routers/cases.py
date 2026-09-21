@@ -6,8 +6,18 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Case, CustodyRow
-from app.schemas import CaseCreate, CaseOut, CustodyEntryCreate, CustodyEntryOut, VerifyResult
+from app.schemas import (
+    CaseCreate,
+    CaseListItem,
+    CaseOut,
+    CustodyEntryCreate,
+    CustodyEntryOut,
+    InvestigationResultOut,
+    InvestigationStartRequest,
+    VerifyResult,
+)
 from app.services.custody import GENESIS_HASH, CustodyChain, CustodyEntry
+from app.services.investigation import run_full_investigation
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
@@ -17,6 +27,49 @@ def _get_case_or_404(db: Session, evidence_id: str) -> Case:
     if case is None:
         raise HTTPException(status_code=404, detail=f"No case with evidence_id '{evidence_id}'")
     return case
+
+
+@router.get("", response_model=list[CaseListItem])
+def list_cases(db: Session = Depends(get_db)) -> list[CaseListItem]:
+    cases = db.execute(select(Case).order_by(Case.id.desc())).scalars().all()
+    items = []
+    for c in cases:
+        items.append(
+            CaseListItem(
+                id=c.id,
+                evidence_id=c.evidence_id,
+                actor_name=c.actor_name,
+                target_url=c.target_url or c.onion_url or "",
+                target_type=c.target_type or "domain",
+                confidence=c.confidence,
+                status=c.status,
+                created_at=c.created_at.isoformat() if c.created_at else None,
+                evidence_count=len(c.evidence_records),
+                custody_count=len(c.custody),
+            )
+        )
+    return items
+
+
+@router.post("/investigate", response_model=InvestigationResultOut, status_code=200)
+def start_investigation(payload: InvestigationStartRequest, db: Session = Depends(get_db)) -> InvestigationResultOut:
+    return run_full_investigation(payload, db)
+
+
+@router.get("/{evidence_id}/investigation", response_model=InvestigationResultOut)
+def get_case_investigation(evidence_id: str, db: Session = Depends(get_db)) -> InvestigationResultOut:
+    case = _get_case_or_404(db, evidence_id)
+    # If case has no evidence records yet, run investigation with default target
+    req = InvestigationStartRequest(
+        case_name=f"Case {case.evidence_id}",
+        evidence_id=case.evidence_id,
+        actor_name=case.actor_name,
+        target=case.target_url or case.onion_url or "185.220.101.42",
+        target_type=case.target_type or "onion",
+        known_pgp=case.pgp_fingerprint,
+        known_btc=case.btc_root,
+    )
+    return run_full_investigation(req, db)
 
 
 @router.post("", response_model=CaseOut, status_code=201)
@@ -35,6 +88,7 @@ def create_case(payload: CaseCreate, db: Session = Depends(get_db)) -> Case:
 @router.get("/{evidence_id}", response_model=CaseOut)
 def get_case(evidence_id: str, db: Session = Depends(get_db)) -> Case:
     return _get_case_or_404(db, evidence_id)
+
 
 
 @router.post("/{evidence_id}/custody", response_model=CustodyEntryOut, status_code=201)

@@ -44,6 +44,120 @@ export interface AttributionScoreResult {
   breakdown: Record<string, unknown>;
 }
 
+export interface EvidenceRecord {
+  id: number;
+  case_id: number;
+  evidence_type: string;
+  title: string;
+  raw_value: string;
+  normalized_hash: string;
+  confidence: number;
+  provenance: "LIVE_SOURCE" | "DEMO_DATA" | "SOURCE_UNAVAILABLE" | "STATIC_OSINT";
+  source_reference: string;
+  metadata_json: Record<string, any>;
+  created_at?: string;
+}
+
+export interface CaseData {
+  evidence_id: string;
+  actor_name: string;
+  aliases: string[];
+  origin_ip: string;
+  geo: string;
+  asn: string;
+  pgp_fingerprint: string;
+  btc_root: string;
+  confidence: number;
+  onion_url: string;
+  target_url: string;
+  target_type: string;
+  status: string;
+  custody: CustodyEntryItem[];
+  evidence_records: EvidenceRecord[];
+  correlations: Array<{
+    id: number;
+    source_node: string;
+    target_node: string;
+    relationship_type: string;
+    weight: number;
+    deterministic: number;
+    notes: string;
+  }>;
+}
+
+export interface CaseListItem {
+  id: number;
+  evidence_id: string;
+  actor_name: string;
+  target_url: string;
+  target_type: string;
+  confidence: number;
+  status: string;
+  created_at?: string;
+  evidence_count: number;
+  custody_count: number;
+}
+
+export interface InvestigationRequest {
+  case_name: string;
+  evidence_id?: string;
+  actor_name?: string;
+  target: string;
+  target_type?: string;
+  known_pgp?: string;
+  known_btc?: string;
+  text_sample?: string;
+  mode?: string;
+}
+
+export interface InvestigationResult {
+  case: CaseData;
+  attribution: {
+    confidence_score: number;
+    confidence_tier: string;
+    breakdown: Record<string, any>;
+    judicial_admissibility: string;
+    evidentiary_caveat: string;
+  };
+  graph: {
+    case_id: string;
+    node_count: number;
+    edge_count: number;
+    nodes: Array<{
+      id: string;
+      label: string;
+      type: string;
+      metadata: Record<string, any>;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      relationship: string;
+      weight: number;
+      deterministic: boolean;
+    }>;
+    cypher_statements: string[];
+  };
+  diurnal: DiurnalResult;
+  stylometry: StylometryResult;
+  custody_verification: VerifyResult;
+  provenance_summary: {
+    live_count: number;
+    demo_count: number;
+    unavailable_count: number;
+    static_count: number;
+    rule: string;
+    evidentiary_caveat: string;
+  };
+  timeline: Array<{
+    step: number;
+    title: string;
+    description: string;
+    timestamp: string;
+    status: string;
+  }>;
+}
+
 // ---------- Health & Connectivity ---------- //
 
 export async function checkBackendHealth(): Promise<ApiStatus> {
@@ -425,3 +539,242 @@ export async function appendCustodyEntry(
   };
 }
 
+// ---------- Full Investigation Lifecycle API Calls ---------- //
+
+export async function fetchCasesList(): Promise<{ cases: CaseListItem[]; isLive: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/cases`);
+    if (res.ok) {
+      const cases: CaseListItem[] = await res.json();
+      return { cases, isLive: true };
+    }
+  } catch (err) {
+    console.warn("Fetch cases API error:", err);
+  }
+
+  return {
+    cases: [
+      {
+        id: 1,
+        evidence_id: "AT-2026-0047",
+        actor_name: "UNC-3844 (ZeroTrace)",
+        target_url: "http://p4lx7e22kq6dreadmarket.onion",
+        target_type: "onion",
+        confidence: 94.8,
+        status: "ACTIVE",
+        created_at: new Date().toISOString(),
+        evidence_count: 9,
+        custody_count: 6,
+      },
+    ],
+    isLive: false,
+  };
+}
+
+export async function fetchCaseInvestigation(
+  evidenceId: string
+): Promise<{ data: InvestigationResult; isLive: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/cases/${evidenceId}/investigation`);
+    if (res.ok) {
+      const data: InvestigationResult = await res.json();
+      return { data, isLive: true };
+    }
+  } catch (err) {
+    console.warn("Fetch case investigation API error:", err);
+  }
+
+  return {
+    data: buildFallbackInvestigation({
+      case_name: `Case ${evidenceId}`,
+      evidence_id: evidenceId,
+      target: "http://p4lx7e22kq6dreadmarket.onion",
+      target_type: "onion",
+    }),
+    isLive: false,
+  };
+}
+
+export async function startInvestigation(
+  payload: InvestigationRequest
+): Promise<{ data: InvestigationResult; isLive: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/cases/investigate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data: InvestigationResult = await res.json();
+      return { data, isLive: true };
+    }
+  } catch (err) {
+    console.warn("Start investigation API error, using rich forensic fallback:", err);
+  }
+
+  return {
+    data: buildFallbackInvestigation(payload),
+    isLive: false,
+  };
+}
+
+function buildFallbackInvestigation(req: InvestigationRequest): InvestigationResult {
+  const evId = req.evidence_id || "AT-2026-0048";
+  const actor = req.actor_name || "UNC-3844";
+  const target = req.target || "http://p4lx7e22kq6dreadmarket.onion";
+  const targetType = req.target_type || "onion";
+
+  return {
+    case: {
+      evidence_id: evId,
+      actor_name: actor,
+      aliases: ["ZeroTrace", "ShadowByte", "VortexBroker"],
+      origin_ip: "185.220.101.42",
+      geo: "Munich, Bavaria, Germany",
+      asn: "AS9009 M247 Europe",
+      pgp_fingerprint: "4D9E 27BC 918A 4F02 C731 09AE 2C5B 88E1 40FA 7D3C",
+      btc_root: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+      confidence: 94.8,
+      onion_url: targetType === "onion" ? target : "http://p4lx7e22kq6dreadmarket.onion",
+      target_url: target,
+      target_type: targetType,
+      status: "ACTIVE",
+      custody: [
+        {
+          seq: 1,
+          timestamp: new Date().toISOString(),
+          actor: "Lead Cyber Forensics Officer (CERT-In)",
+          action: `Investigation initialized for target: ${target}.`,
+          prev_hash: "0000000000000000000000000000000000000000000000000000000000000000",
+          entry_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        },
+        {
+          seq: 2,
+          timestamp: new Date().toISOString(),
+          actor: "AETHER Autonomous Recon",
+          action: "Favicon mmh3 hash -129482710 matched Shodan facet cluster.",
+          prev_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          entry_hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+        },
+      ],
+      evidence_records: [
+        {
+          id: 1,
+          case_id: 1,
+          evidence_type: "FAVICON_HASH",
+          title: "Favicon MurmurHash3 32-bit Signature",
+          raw_value: "-129482710",
+          normalized_hash: "-129482710",
+          confidence: 0.98,
+          provenance: "DEMO_DATA",
+          source_reference: "Shodan HTTP Facet / http.favicon.hash",
+          metadata_json: {
+            evidentiary_caveat: "Investigative lead only: Identical favicon hashes across servers indicate shared assets or software template reuse; they do not prove common ownership without corroborating infrastructure or cryptographic keys.",
+          },
+        },
+        {
+          id: 2,
+          case_id: 1,
+          evidence_type: "ORIGIN_IP",
+          title: "Unmasked Clearnet Origin Host IPv4",
+          raw_value: "185.220.101.42",
+          normalized_hash: "185.220.101.42",
+          confidence: 0.96,
+          provenance: "DEMO_DATA",
+          source_reference: "Apache /server-status leak + Favicon MurmurHash3 correlation",
+          metadata_json: {
+            evidentiary_caveat: "Origin IP discovery demonstrates backend server location; VPS providers or shared hosting may host multiple independent operators.",
+          },
+        },
+        {
+          id: 3,
+          case_id: 1,
+          evidence_type: "PGP_KEY",
+          title: "PGP V4 Public Key Fingerprint",
+          raw_value: "4D9E 27BC 918A 4F02 C731 09AE 2C5B 88E1 40FA 7D3C",
+          normalized_hash: "4D9E27BC918A4F02C73109AE2C5B88E140FA7D3C",
+          confidence: 1.0,
+          provenance: "DEMO_DATA",
+          source_reference: "OpenPGP RFC 4880 Key Registry",
+          metadata_json: {
+            evidentiary_caveat: "Deterministic cryptographic indicator when private key signatures are verified; public key republication alone must be verified against signature timestamps.",
+          },
+        },
+      ],
+      correlations: [],
+    },
+    attribution: {
+      confidence_score: 94.8,
+      confidence_tier: "DEFINITIVE JUDICIAL ATTRIBUTION",
+      breakdown: {
+        s_det: 0.9525,
+        s_ai: 0.8972,
+        weight_det: 0.7,
+        weight_ai: 0.3,
+        total_penalty: 0.0,
+      },
+      judicial_admissibility: "Adheres to Daubert/Frye standards: Segregates deterministic proofs from AI heuristics.",
+      evidentiary_caveat: "Attribution reflects multi-vector correlation across 9 modules; single-point indicator proof is strictly disclaimed.",
+    },
+    graph: {
+      case_id: evId,
+      node_count: 7,
+      edge_count: 6,
+      nodes: [
+        { id: "actor-1", label: actor, type: "threat-actor", metadata: { confidence: "94.8%", color: "#f87171" } },
+        { id: "target-1", label: target, type: targetType, metadata: { confidence: "98.0%", color: "#c084fc" } },
+        { id: "ip-1", label: "185.220.101.42", type: "ipv4", metadata: { confidence: "96.5%", color: "#38bdf8" } },
+        { id: "pgp-1", label: "4D9E 27BC...", type: "pgp", metadata: { confidence: "100.0%", color: "#4ade80" } },
+        { id: "btc-1", label: "1A1zP1...", type: "wallet", metadata: { confidence: "88.5%", color: "#fbbf24" } },
+        { id: "hash-1", label: "mmh3: -129482710", type: "hash", metadata: { confidence: "99.0%", color: "#22d3ee" } },
+      ],
+      edges: [
+        { source: "actor-1", target: "target-1", relationship: "ADMINISTRATES", weight: 0.98, deterministic: true },
+        { source: "target-1", target: "ip-1", relationship: "ORIGIN_EXPOSURE", weight: 0.96, deterministic: true },
+        { source: "actor-1", target: "pgp-1", relationship: "DECLARED_KEY", weight: 1.0, deterministic: true },
+        { source: "actor-1", target: "btc-1", relationship: "EXTORTION_ROOT", weight: 0.88, deterministic: true },
+        { source: "ip-1", target: "hash-1", relationship: "FAVICON_MATCH", weight: 0.99, deterministic: true },
+      ],
+      cypher_statements: [],
+    },
+    diurnal: {
+      total_events: 54,
+      histogram: [0, 0, 0, 0, 1, 3, 5, 8, 12, 10, 9, 8, 7, 6, 8, 11, 7, 5, 4, 2, 1, 0, 0, 0],
+      sleep_trough: { start_utc: 22, end_utc: 4, duration_hours: 6, events_in_trough: 1 },
+      estimated_timezone: {
+        offset_hours: 5.5,
+        formatted_offset: "UTC+05:30",
+        primary_candidate_key: 5.5,
+        candidate_regions: ["India Standard Time (IST)", "Sri Lanka"],
+      },
+    },
+    stylometry: {
+      similarity_score: 0.934,
+      breakdown: { char_3gram_cosine: 0.942, word_unigram_cosine: 0.925, word_bigram_cosine: 0.918 },
+      shared_tokens_count: 24,
+      shared_tokens_sample: ["escrow", "pgp", "payment", "onion", "bitcoin"],
+    },
+    custody_verification: {
+      valid: true,
+      broken_at_seq: null,
+      entry_count: 6,
+      seal: "9f83a4b2c1e0d3f4a5b6c7d8e9f0123456789abcdef0123456789abcdef01234",
+    },
+    provenance_summary: {
+      live_count: 0,
+      demo_count: 8,
+      unavailable_count: 1,
+      static_count: 0,
+      rule: "Every indicator clearly displays source provenance. No single indicator constitutes proof of identity.",
+      evidentiary_caveat: "All probabilistic indicators require mathematical cryptographic corroboration.",
+    },
+    timeline: [
+      { step: 1, title: "Investigation Initiated", description: `Target '${target}' loaded.`, timestamp: new Date().toISOString(), status: "COMPLETED" },
+      { step: 2, title: "Favicon mmh3 Matched", description: "Extracted favicon hash -129482710.", timestamp: new Date().toISOString(), status: "COMPLETED" },
+      { step: 3, title: "Stylometry NLP Evaluated", description: "Cosine similarity 93.4% against ZeroTrace corpus.", timestamp: new Date().toISOString(), status: "COMPLETED" },
+      { step: 4, title: "PGP Key Verified", description: "40-character key ID 4D9E27BC918A4F02.", timestamp: new Date().toISOString(), status: "COMPLETED" },
+      { step: 5, title: "Origin IP Unmasked", description: "Identified host IPv4 185.220.101.42.", timestamp: new Date().toISOString(), status: "COMPLETED" },
+      { step: 6, title: "Forensic Attribution Sealed", description: "Score 94.8% (Definitive Judicial Attribution).", timestamp: new Date().toISOString(), status: "COMPLETED" },
+    ],
+  };
+}

@@ -1,27 +1,35 @@
 "use client";
 
 import React, { useState } from "react";
-import { downloadForensicCsv, downloadStixBundle } from "@/lib/api";
+import { downloadForensicCsv, downloadStixBundle, InvestigationResult } from "@/lib/api";
 
 interface DossierModalProps {
   isOpen: boolean;
   onClose: () => void;
+  investigation?: InvestigationResult | null;
+  evidenceId?: string;
   onShowToast: (title: string, message: string) => void;
 }
 
 export const DossierModal: React.FC<DossierModalProps> = ({
   isOpen,
   onClose,
+  investigation,
+  evidenceId = "AT-2026-0047",
   onShowToast,
 }) => {
   const [downloading, setDownloading] = useState(false);
 
   if (!isOpen) return null;
 
+  const targetEvidenceId = investigation?.case?.evidence_id || evidenceId;
+  const caseData = investigation?.case;
+  const attribution = investigation?.attribution;
+
   const handleStixDownload = async () => {
     setDownloading(true);
     try {
-      const { isLive, filename } = await downloadStixBundle("AT-2026-0047");
+      const { isLive, filename } = await downloadStixBundle(targetEvidenceId);
       onShowToast(
         "STIX 2.1 Bundle Exported",
         `${filename} generated via ${isLive ? "FastAPI backend (:8000)" : "client fallback generator"}.`
@@ -37,7 +45,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({
   const handleCsvDownload = async () => {
     setDownloading(true);
     try {
-      const { isLive, filename } = await downloadForensicCsv("AT-2026-0047");
+      const { isLive, filename } = await downloadForensicCsv(targetEvidenceId);
       onShowToast(
         "Forensic CSV Exported",
         `${filename} generated via ${isLive ? "FastAPI backend (:8000)" : "client fallback buffer"}.`
@@ -68,7 +76,7 @@ export const DossierModal: React.FC<DossierModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">FORM-DEANON: Forensic Dossier</h3>
-              <p className="text-xs text-slate-400 font-mono">Dossier ID: NTRO-26151-2026-0914</p>
+              <p className="text-xs text-slate-400 font-mono">Dossier ID: NTRO-26151-{targetEvidenceId}</p>
             </div>
           </div>
           <button
@@ -83,20 +91,40 @@ export const DossierModal: React.FC<DossierModalProps> = ({
         <div className="py-4 space-y-3 text-xs">
           <div className="bg-[#080b10] p-3.5 border border-[#1e2533] space-y-2 font-mono text-[11px]">
             <div className="flex justify-between">
-              <span className="text-slate-400">Target Handle:</span>{" "}
-              <span className="font-bold text-white">ZeroTrace / ShadowByte</span>
+              <span className="text-slate-400">Target / Handle:</span>{" "}
+              <span className="font-bold text-white">
+                {caseData?.actor_name || caseData?.target_url || "ZeroTrace / ShadowByte"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Target Type:</span>{" "}
+              <span className="font-mono text-cyan-400 uppercase">
+                {caseData?.target_type || "onion"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Discovered IP:</span>{" "}
-              <span className="font-bold text-[#f87171]">185.220.101.42 (Munich)</span>
+              <span className="font-bold text-[#f87171]">
+                {caseData?.origin_ip
+                  ? `${caseData.origin_ip} (${caseData.geo || "Resolved"})`
+                  : "N/A (Multi-hop SOCKS5)"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">PGP Key Hash:</span>{" "}
-              <span className="text-slate-200">4D9E27BC918A4F...</span>
+              <span className="text-slate-200">
+                {caseData?.pgp_fingerprint
+                  ? `${caseData.pgp_fingerprint.substring(0, 18)}...`
+                  : "N/A"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Confidence Score:</span>{" "}
-              <span className="font-bold text-white">94.8% (Court Verifiable)</span>
+              <span className="font-bold text-white">
+                {attribution
+                  ? `${attribution.confidence_score}% (${attribution.confidence_tier})`
+                  : "94.8% (Court Verifiable)"}
+              </span>
             </div>
           </div>
 
@@ -104,8 +132,12 @@ export const DossierModal: React.FC<DossierModalProps> = ({
             <i className="fa-solid fa-circle-check text-base shrink-0 text-slate-400"></i>
             <p className="text-[11px] leading-tight">
               SHA-256 Digital Seal:{" "}
-              <span className="font-mono text-white">e3b0c44298fc1c149afbf4c8996...</span> Native
-              OASIS STIX 2.1 format.
+              <span className="font-mono text-white">
+                {investigation?.custody_verification?.seal
+                  ? `${investigation.custody_verification.seal.substring(0, 24)}...`
+                  : "e3b0c44298fc1c149afbf4c8996..."}
+              </span>{" "}
+              Native OASIS STIX 2.1 format.
             </p>
           </div>
         </div>

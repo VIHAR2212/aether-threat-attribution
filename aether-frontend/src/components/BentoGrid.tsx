@@ -1,22 +1,43 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  InvestigationResult,
   runDiurnalAnalysis,
   runStylometryAnalysis,
 } from "@/lib/api";
 
 interface BentoGridProps {
+  investigation?: InvestigationResult | null;
+  onOpenNewInvestigation?: () => void;
   onOpenDossier: () => void;
   onOpenEvidence: () => void;
   onShowToast: (title: string, message: string) => void;
 }
 
 export const BentoGrid: React.FC<BentoGridProps> = ({
+  investigation,
+  onOpenNewInvestigation,
   onOpenDossier,
   onOpenEvidence,
   onShowToast,
 }) => {
+  const caseData = investigation?.case;
+  const attribution = investigation?.attribution;
+  const provenance = investigation?.provenance_summary;
+  const timelineEvents = investigation?.timeline;
+
+  const scorePct = attribution ? `${attribution.confidence_score}%` : "94.8%";
+  const scoreNum = attribution ? attribution.confidence_score : 94.8;
+  const confidenceTier = attribution?.confidence_tier || "DEFINITIVE JUDICIAL ATTRIBUTION";
+  const currentActor = caseData?.actor_name || "ZeroTrace (APT-091)";
+  const currentOriginIp = caseData?.origin_ip || "185.220.101.42";
+  const currentTarget = caseData?.target_url || caseData?.onion_url || "http://p4lx7e22kq6dreadmarket.onion";
+  const currentTargetType = caseData?.target_type || "onion";
+  const currentPgp = caseData?.pgp_fingerprint || "4D9E 27BC 918A 4F02 C731 09AE 2C5B 88E1 40FA 7D3C";
+  const currentBtc = caseData?.btc_root || "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+  const currentEvidenceId = caseData?.evidence_id || "AT-2026-0047";
+
   const [stylometryScore, setStylometryScore] = useState("93.4%");
   const [operationalOffset, setOperationalOffset] = useState("UTC +05:30");
   const [activeFilter, setActiveFilter] = useState<"monthly" | "circadian">("circadian");
@@ -28,6 +49,19 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
   const [monthlyHourly] = useState<number[]>([
     12, 15, 14, 8, 4, 16, 22, 19, 14, 9, 5, 18, 25, 21, 15, 8, 6, 14, 20, 17, 11, 7, 5, 19, 28, 24, 16, 9, 8, 22,
   ]);
+
+  // Sync state when investigation prop updates
+  useEffect(() => {
+    if (investigation?.diurnal?.histogram && investigation.diurnal.histogram.length === 24) {
+      setDiurnalHourly(investigation.diurnal.histogram);
+    }
+    if (investigation?.diurnal?.estimated_timezone?.formatted_offset) {
+      setOperationalOffset(investigation.diurnal.estimated_timezone.formatted_offset);
+    }
+    if (investigation?.stylometry?.similarity_score !== undefined) {
+      setStylometryScore(`${(investigation.stylometry.similarity_score * 100).toFixed(1)}%`);
+    }
+  }, [investigation]);
 
   // Run live Stylometry Evaluation
   const handleStylometryEval = async () => {
@@ -104,31 +138,79 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
   const peakPoint = points.reduce((prev, curr) => (curr.val > prev.val ? curr : prev), points[0]);
   const minPoint = points.reduce((prev, curr) => (curr.val < prev.val ? curr : prev), points[0]);
 
+  // Gauge arc coordinates
+  const gaugeRad = Math.PI * (scoreNum / 100);
+  const gaugeX = (100 - 80 * Math.cos(gaugeRad)).toFixed(1);
+  const gaugeY = (100 - 80 * Math.sin(gaugeRad)).toFixed(1);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {/* STAT CARD 1: SOCKS5 Active Crawlers */}
-      <div className="matte-card p-5 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Active Probes
-          </p>
-          <h3 className="text-2xl font-bold text-white mt-1 font-mono">
-            14 <span className="text-xs font-normal text-slate-400 font-sans">Nodes</span>
-          </h3>
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-1">
-            <i className="fa-solid fa-network-wired text-[10px] text-slate-400"></i> SOCKS5 Stem Online
-          </span>
+    <div className="space-y-6">
+      {/* COMMAND STATUS & PROVENANCE NOTICE BANNER */}
+      <div className="bg-[#0b0e15] border border-[#202b3a] p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 flex-wrap">
+          <div className="w-9 h-9 bg-[#141c28] border border-[#273447] text-sky-400 flex items-center justify-center text-sm font-mono font-bold shrink-0">
+            <i className="fa-solid fa-crosshairs"></i>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono font-bold text-white tracking-wide">
+                ACTIVE CASE: {currentEvidenceId}
+              </span>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-[#121a26] text-sky-300 border border-[#22354e]">
+                TARGET: {currentTarget} ({currentTargetType.toUpperCase()})
+              </span>
+              {/* Provenance Badges */}
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#0f2419] text-emerald-400 border border-[#1b4e31] font-bold">
+                LIVE: {provenance?.live_count ?? 0}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#251e10] text-amber-300 border border-[#523d1b] font-bold">
+                DEMO BENCHMARK: {provenance?.demo_count ?? 8}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 bg-[#171b24] text-slate-400 border border-[#2b3344] font-bold">
+                SOURCE UNAVAILABLE: {provenance?.unavailable_count ?? 1}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 font-mono mt-1">
+              <span className="text-sky-400 font-bold">EVIDENTIARY PRINCIPLE:</span> No single indicator proves actor identity. 9 analytical modules cross-correlated with tamper-evident custody seal.
+            </p>
+          </div>
         </div>
-        {/* Sharp Neutral Mini Bar Sparkline */}
-        <div className="flex items-end gap-1.5 h-9 px-1">
-          <div className="w-1.5 bg-[#1a212d] h-3"></div>
-          <div className="w-1.5 bg-[#232c3c] h-5"></div>
-          <div className="w-1.5 bg-[#2e3b4f] h-8"></div>
-          <div className="w-1.5 bg-[#3c4c66] h-6"></div>
-          <div className="w-1.5 bg-[#526685] h-9"></div>
-        </div>
+
+        {onOpenNewInvestigation && (
+          <button
+            type="button"
+            onClick={onOpenNewInvestigation}
+            className="px-4 py-2 bg-[#18212e] hover:bg-[#222e40] text-white font-mono text-xs font-bold tracking-wide border border-[#2e3e56] hover:border-sky-500 transition flex items-center gap-2 shrink-0"
+          >
+            <i className="fa-solid fa-plus text-[10px] text-sky-400"></i>
+            <span>NEW INVESTIGATION</span>
+          </button>
+        )}
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* STAT CARD 1: SOCKS5 Active Crawlers */}
+        <div className="matte-card p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Forensic Modules
+            </p>
+            <h3 className="text-2xl font-bold text-white mt-1 font-mono">
+              9 <span className="text-xs font-normal text-slate-400 font-sans">Engines Online</span>
+            </h3>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 mt-1">
+              <i className="fa-solid fa-network-wired text-[10px] text-slate-400"></i> Tor &amp; Shodan Wired
+            </span>
+          </div>
+          {/* Sharp Neutral Mini Bar Sparkline */}
+          <div className="flex items-end gap-1.5 h-9 px-1">
+            <div className="w-1.5 bg-[#1a212d] h-3"></div>
+            <div className="w-1.5 bg-[#232c3c] h-5"></div>
+            <div className="w-1.5 bg-[#2e3b4f] h-8"></div>
+            <div className="w-1.5 bg-[#3c4c66] h-6"></div>
+            <div className="w-1.5 bg-[#526685] h-9"></div>
+          </div>
+        </div>
 
       {/* STAT CARD 2: Resolved Threat Personas */}
       <div className="matte-card p-5 flex items-center justify-between">
@@ -192,6 +274,7 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
         >
           <path d="M2 20 Q 20 2 40 20 T 78 15" strokeLinecap="square" />
         </svg>
+      </div>
       </div>
 
       {/* MIDDLE ROW 1: Wide Temporal & Diurnal Timeline Chart */}
@@ -519,13 +602,13 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
             Attribution Confidence
           </span>
           <p className="text-xs text-slate-400 mt-0.5">Composite Engine Formula (C_attr)</p>
-          <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">94.8%</h3>
-          <p className="text-xs font-semibold text-slate-400 mt-1">
-            Proof: PGP Fingerprint + Origin IP
+          <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">{scorePct}</h3>
+          <p className="text-xs font-semibold text-sky-400 mt-1 truncate">
+            {confidenceTier}
           </p>
         </div>
 
-        {/* Gauge SVG (Green used ONLY on graph score arc) */}
+        {/* Gauge SVG (Dynamic arc calculated from score) */}
         <div className="relative flex flex-col items-center justify-center my-2">
           <svg className="w-48 h-28" viewBox="0 0 200 110">
             {/* Background Arc */}
@@ -536,9 +619,9 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
               strokeWidth="15"
               strokeLinecap="square"
             />
-            {/* Green Graph Arc (85% Fill) */}
+            {/* Dynamic Graph Arc */}
             <path
-              d="M 20 100 A 80 80 0 0 1 165 52"
+              d={`M 20 100 A 80 80 0 0 1 ${gaugeX} ${gaugeY}`}
               fill="none"
               stroke="#22c55e"
               strokeWidth="15"
@@ -546,16 +629,20 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
             />
           </svg>
           <div className="absolute bottom-2 flex flex-col items-center">
-            <span className="text-2xl font-black text-white font-mono">94.8%</span>
+            <span className="text-2xl font-black text-white font-mono">{scorePct}</span>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Verified Match
+              {scoreNum >= 90 ? "Judicial Proof" : scoreNum >= 75 ? "High Lead" : "Inconclusive"}
             </span>
           </div>
         </div>
 
         <div className="flex items-center justify-between text-xs font-semibold pt-3 border-t border-[#1e2533]">
           <span className="text-slate-400">Contradiction Penalty</span>
-          <span className="font-mono text-slate-300">0.0% (No conflicts)</span>
+          <span className="font-mono text-slate-300">
+            {attribution?.breakdown?.total_penalty
+              ? `${(attribution.breakdown.total_penalty * 100).toFixed(1)}%`
+              : "0.0% (No conflicts)"}
+          </span>
         </div>
       </div>
 
@@ -565,16 +652,18 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
           {/* Suspect Avatar */}
           <div className="w-16 h-16 bg-[#12161f] p-2 mb-3 relative border border-[#273447]">
             <img
-              src="https://api.dicebear.com/7.x/bottts/svg?seed=ShadowByte"
+              src={`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentActor)}`}
               alt="Actor Avatar"
               className="w-12 h-12"
             />
           </div>
-          <h3 className="text-lg font-bold text-white">ZeroTrace (APT-091)</h3>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">zerotrace@dread.onion</p>
+          <h3 className="text-lg font-bold text-white">{currentActor}</h3>
+          <p className="text-xs text-slate-400 font-mono mt-0.5 truncate max-w-[220px]">
+            {currentTarget}
+          </p>
 
           <span className="inline-block mt-2 text-[11px] font-bold px-3 py-1 bg-[#2a1215] text-[#f87171] border border-[#4a1f24]">
-            ALERT: Primary Ransomware Operator
+            ALERT: Primary Operator
           </span>
         </div>
 
@@ -582,15 +671,21 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
         <div className="grid grid-cols-3 gap-2 w-full pt-4 mt-4 border-t border-[#1e2533]">
           <div>
             <p className="text-xs text-slate-400 font-medium">Aliases</p>
-            <h4 className="text-base font-bold text-white font-mono mt-0.5">7</h4>
+            <h4 className="text-base font-bold text-white font-mono mt-0.5">
+              {caseData?.aliases?.length ?? 3}
+            </h4>
           </div>
           <div>
-            <p className="text-xs text-slate-400 font-medium">Wallets</p>
-            <h4 className="text-base font-bold text-white font-mono mt-0.5">14</h4>
+            <p className="text-xs text-slate-400 font-medium">Evidence</p>
+            <h4 className="text-base font-bold text-white font-mono mt-0.5">
+              {caseData?.evidence_records?.length ?? 9}
+            </h4>
           </div>
           <div>
-            <p className="text-xs text-slate-400 font-medium">PGP Keys</p>
-            <h4 className="text-base font-bold text-white font-mono mt-0.5">2</h4>
+            <p className="text-xs text-slate-400 font-medium">Custody</p>
+            <h4 className="text-base font-bold text-white font-mono mt-0.5">
+              {caseData?.custody?.length ?? 6}
+            </h4>
           </div>
         </div>
       </div>
@@ -616,7 +711,7 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
               onClick={() =>
                 onShowToast(
                   "Neo4j Node Inspector",
-                  "Querying STIX 2.1 schema for Actor APT-091 via /api/analysis/graph..."
+                  `Querying STIX 2.1 schema for Case ${currentEvidenceId} via /api/analysis/graph...`
                 )
               }
               className="px-4 py-2.5 bg-[#121721] hover:bg-[#18202d] text-slate-300 border border-[#232d3d] text-xs font-semibold transition"
@@ -628,43 +723,43 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
 
         {/* 3D Stacked Sharp Cards Mockup */}
         <div className="relative w-64 h-48 flex items-center justify-center shrink-0">
-          {/* Card 3 (Bottom) */}
+          {/* Card 3 (Bottom): Favicon MurmurHash3 */}
           <div className="absolute w-52 h-32 bg-[#12161f] text-white p-3.5 floating-card-3d border border-[#4a1f24] translate-y-6">
             <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
               <span>FAVICON MURMURHASH3</span>
               <i className="fa-solid fa-triangle-exclamation text-[#f87171]"></i>
             </div>
-            <div className="mt-4 font-mono text-xs font-bold text-[#f87171]">
-              IP: 185.220.101.42
+            <div className="mt-4 font-mono text-xs font-bold text-[#f87171] truncate">
+              IP: {currentOriginIp}
             </div>
             <div className="text-[9px] text-slate-400 mt-1 font-mono">
               Hash: -129482710 (Shodan Match)
             </div>
           </div>
 
-          {/* Card 2 (Middle) */}
+          {/* Card 2 (Middle): Bitcoin Peel Chain */}
           <div className="absolute w-52 h-32 bg-[#161d28] text-white p-3.5 floating-card-3d border border-[#2c3749] translate-y-2">
             <div className="flex justify-between items-center text-[10px] text-slate-300 font-mono">
               <span>BITCOIN PEEL CHAIN</span>
               <i className="fa-brands fa-bitcoin text-slate-400"></i>
             </div>
-            <div className="mt-4 font-mono text-[11px] font-bold text-slate-200">
-              1A1zP1...Cluster (14 Addr)
+            <div className="mt-4 font-mono text-[11px] font-bold text-slate-200 truncate">
+              {currentBtc.substring(0, 14)}...
             </div>
-            <div className="text-[9px] text-slate-400 mt-1">Off-ramp: VASP Exchange Deposit</div>
+            <div className="text-[9px] text-slate-400 mt-1">Co-spent Cluster (14 Addr)</div>
           </div>
 
-          {/* Card 1 (Top) */}
+          {/* Card 1 (Top): PGP Public Key */}
           <div className="absolute w-52 h-32 bg-[#1b2331] text-white p-3.5 floating-card-3d border border-[#394860] -translate-y-3">
             <div className="flex justify-between items-center text-[10px] text-slate-300 font-mono">
               <span>PGP PUBLIC KEY (40-CHAR)</span>
               <i className="fa-solid fa-lock text-slate-400"></i>
             </div>
-            <div className="mt-4 font-mono text-xs font-bold tracking-wider text-white">
-              4D9E 27BC ... F980
+            <div className="mt-4 font-mono text-xs font-bold tracking-wider text-white truncate">
+              {currentPgp.substring(0, 18)}...
             </div>
             <div className="flex justify-between items-end mt-2 text-[9px] text-slate-300 font-mono">
-              <span>ZeroTrace ↔ ShadowByte</span>
+              <span>Verified Key Reuse</span>
               <span className="text-white font-bold">100% MATCH</span>
             </div>
           </div>
@@ -674,57 +769,71 @@ export const BentoGrid: React.FC<BentoGridProps> = ({
       {/* BOTTOM ROW 2: Recent Attribution Activity */}
       <div className="matte-card p-6 flex flex-col justify-between">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-bold text-white">Recent Discoveries</h3>
-          <span className="text-[11px] font-mono font-semibold text-slate-400">Live Tor Stream</span>
+          <h3 className="text-sm font-bold text-white">Investigation Timeline</h3>
+          <span className="text-[11px] font-mono font-semibold text-sky-400">Live Case Stream</span>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {/* Item 1 */}
-          <div className="flex items-center justify-between py-1.5 border-b border-[#1e2533]">
-            <div>
-              <p className="text-xs font-bold text-slate-200">Origin IP Unmasked</p>
-              <p className="text-[10px] text-slate-400 font-mono">Apache /server-status leak</p>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#2a1215] text-[#f87171] border border-[#4a1f24]">
-              +185.220.x.x
-            </span>
-          </div>
-
-          {/* Item 2 */}
-          <div className="flex items-center justify-between py-1.5 border-b border-[#1e2533]">
-            <div>
-              <p className="text-xs font-bold text-slate-200">Alias Rebrand Linked</p>
-              <p className="text-[10px] text-slate-400 font-mono">Siamese RoBERTa (0.93 sim)</p>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#161d28] text-slate-200 border border-[#273447]">
-              ShadowByte
-            </span>
-          </div>
-
-          {/* Item 3 */}
-          <div className="flex items-center justify-between py-1.5">
-            <div>
-              <p className="text-xs font-bold text-slate-200">VASP Cash-out Tagged</p>
-              <p className="text-[10px] text-slate-400 font-mono">Co-spent Bitcoin cluster</p>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#161d28] text-slate-200 border border-[#273447]">
-              3.42 BTC
-            </span>
-          </div>
+        <div className="flex flex-col gap-2.5">
+          {timelineEvents && timelineEvents.length > 0 ? (
+            timelineEvents.slice(0, 3).map((item) => (
+              <div key={item.step} className="flex items-center justify-between py-1.5 border-b border-[#1e2533]">
+                <div>
+                  <p className="text-xs font-bold text-slate-200">{item.title}</p>
+                  <p className="text-[10px] text-slate-400 font-mono truncate max-w-[190px]">
+                    {item.description}
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-[#161d28] text-emerald-400 border border-[#273447]">
+                  {item.status}
+                </span>
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="flex items-center justify-between py-1.5 border-b border-[#1e2533]">
+                <div>
+                  <p className="text-xs font-bold text-slate-200">Origin IP Unmasked</p>
+                  <p className="text-[10px] text-slate-400 font-mono">Favicon mmh3 + Apache leak</p>
+                </div>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#2a1215] text-[#f87171] border border-[#4a1f24]">
+                  +{currentOriginIp}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-[#1e2533]">
+                <div>
+                  <p className="text-xs font-bold text-slate-200">Alias Rebrand Linked</p>
+                  <p className="text-[10px] text-slate-400 font-mono">Stylometry NLP (Cosine 0.93)</p>
+                </div>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#161d28] text-slate-200 border border-[#273447]">
+                  ShadowByte
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1.5">
+                <div>
+                  <p className="text-xs font-bold text-slate-200">VASP Cash-out Tagged</p>
+                  <p className="text-[10px] text-slate-400 font-mono">Co-spent Bitcoin cluster</p>
+                </div>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#161d28] text-slate-200 border border-[#273447]">
+                  3.42 BTC
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <button
           onClick={() =>
             onShowToast(
-              "Telemetry Logs",
-              "Loaded all 48 background descriptors from Tor/SOCKS5 crawler."
+              "Investigation Log",
+              `Case ${currentEvidenceId} has ${timelineEvents?.length ?? 6} recorded chronological discoveries.`
             )
           }
           className="w-full mt-2 py-2 text-xs font-semibold text-slate-400 hover:text-white transition text-center border-t border-[#1e2533]"
         >
-          View All 48 Telemetry Logs →
+          View All {timelineEvents?.length ?? 11} Step Dispatches →
         </button>
       </div>
+
 
       {/* BOTTOM ROW 3: Subpoena & Forensic Export */}
       <div className="matte-card p-6 flex flex-col items-center text-center justify-between">
