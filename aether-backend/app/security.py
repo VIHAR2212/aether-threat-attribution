@@ -134,7 +134,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # 6. Content Security Policy
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
             "font-src 'self' https://cdnjs.cloudflare.com; "
             "connect-src 'self' http://localhost:* http://127.0.0.1:*; "
